@@ -16,9 +16,9 @@ import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.UseItemRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.UseItemResponse;
 
-public class UseItemRequestHandler extends AbstractMessageHandler {
+public class ZjhUseItemRequestHandler extends AbstractMessageHandler {
 
-	public UseItemRequestHandler(MessageEvent messageEvent) {
+	public ZjhUseItemRequestHandler(MessageEvent messageEvent) {
 		super(messageEvent);
 	}
 
@@ -98,6 +98,7 @@ public class UseItemRequestHandler extends AbstractMessageHandler {
 		
 		return itemHandler;
 	}
+	
 	@Override
 	public boolean isProcessForSessionAllocation() {
 		return false;

@@ -5,6 +5,13 @@ import org.jboss.netty.channel.MessageEvent;
 
 import com.orange.game.traffic.messagehandler.AbstractMessageHandler;
 import com.orange.game.traffic.model.dao.GameSession;
+import com.orange.game.traffic.server.GameEventExecutor;
+import com.orange.game.traffic.server.NotificationUtils;
+import com.orange.game.zjh.model.ZjhGameSession;
+import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
+import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
+import com.orange.network.game.protocol.message.GameMessageProtos;
+import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 
 public class FoldCardRequestHandler extends AbstractMessageHandler {
@@ -17,14 +24,61 @@ public class FoldCardRequestHandler extends AbstractMessageHandler {
 	public void handleRequest(GameMessage message, Channel channel,
 			GameSession session) {
 
+		GameResultCode resultCode;
+		String userId = message.getUserId();
+		FoldCardRequest request = message.getFoldCardRequest();
+		
 		if (session == null){
-			return;
+			logger.info("<FoldCardRequestHandler> Session is null !!!");
+			resultCode = GameResultCode.ERROR_NO_SESSION_AVAILABLE;
+		}
+		else if (userId == null){
+			logger.info("<FoldCardRequestHandler> UserId is null !!!");
+			resultCode = GameResultCode.ERROR_USERID_NULL;
+		}
+		else {
+			// do the real job.
+			resultCode = ((ZjhGameSession)session).foldCard(userId); 
+		}
+		
+		
+		// Now build the response.
+		GameMessage response = GameMessage.newBuilder()
+				.setCommand(GameCommandType.FOLD_CARD_RESPONSE)
+				.setMessageId(message.getMessageId())
+				.setResultCode(resultCode)
+				.setFoldCardRequest(request) // insert the request to broadcast to all other players.
+				.setUserId(userId)
+				.build();
+		
+		// Send it.
+		sendResponse(response);
+
+		
+		if (resultCode == GameResultCode.SUCCESS){
+			// Broadcast to all other players.		
+			boolean sendToSelf = false;
+			GameMessage.Builder builder = GameMessageProtos.GameMessage.newBuilder()
+					.setCommand(GameCommandType.FOLD_CARD_REQUEST)
+					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
+					.setSessionId(session.getSessionId())
+					.setUserId(userId)
+					.setFoldCardRequest(request);
+			
+			NotificationUtils.broadcastNotification(session, builder, sendToSelf);
+			
+			// Player can check card anytime, so need to check is it my turn to
+			// decide whether to fire the event to make the state machine transit
+			if ( session.getCurrentPlayUserId().equals(userId)) { 
+				// Fire event
+				GameEventExecutor.getInstance().fireAndDispatchEvent(GameCommandType.LOCAL_FOLD_CARD, session.getSessionId(), userId);
+			} 
+			else if (((ZjhGameSession)session).getAlivePlayerCount() <= 1 ) {
+					// 非当前轮玩家弃牌，如果存活玩家只剩一个，直接可以结束游戏，当前轮玩家获胜。
+					GameEventExecutor.getInstance().fireAndDispatchEvent(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD, session.getSessionId(), userId);
+			}
 		}
 
-		String userId = message.getUserId();
-		if (userId == null){
-			return;
-		}
 		
 	}
 

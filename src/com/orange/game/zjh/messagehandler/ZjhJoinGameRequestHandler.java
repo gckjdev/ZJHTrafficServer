@@ -11,7 +11,7 @@ import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.JoinGameResponse;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHGameState;
-import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserInfo;
+import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 
 public class ZjhJoinGameRequestHandler extends JoinGameRequestHandler {
@@ -25,33 +25,33 @@ public class ZjhJoinGameRequestHandler extends JoinGameRequestHandler {
 	public void handleRequest(GameMessage message, Channel channel, GameSession requestSession) {
 
 		ZjhGameSession session = (ZjhGameSession)processRequest(message, channel, requestSession);
-		
-		if (session.isGamePlaying()){
-//			NotificationUtils.sendUserDiceNotification(session, message.getUserId(), channel, diceNotification);
-		}
+
 	}
 	
 	@Override
-	public JoinGameResponse fullfillResponse(JoinGameResponse.Builder builder, GameSession session) {
+	public JoinGameResponse responseSpecificPart(JoinGameResponse.Builder builder, GameSession session) {
+		
+		JoinGameResponse response;
 		
 		if (session.isGamePlaying()) {
 			int totalBet = ((ZjhGameSession)session).getTotalBet();
 			int singleBet =((ZjhGameSession)session).getSingleBet();
-			List<PBZJHUserInfo> userInfos = ((ZjhGameSession)session).getUserCardInfo();
+			List<PBZJHUserPlayInfo> userPlayInfos = ((ZjhGameSession)session).getUserPlayInfo();
 			
 			PBZJHGameState state = PBZJHGameState.newBuilder()
 								.setTotalBet(totalBet)
 								.setSingleBet(singleBet)
-								.addAllUsersInfo(userInfos)
+								.addAllUsersInfo(userPlayInfos)
 								.build();
 			
-			JoinGameResponse response = builder.setZjhGameState(state)
-														  .build();
+			response = builder.setZjhGameState(state)
+									.build();
 			
 			return response;
 		   
 		} else {	
-			return null;
+			response = builder.build();
+			return response;
 		}
 	}
 }
