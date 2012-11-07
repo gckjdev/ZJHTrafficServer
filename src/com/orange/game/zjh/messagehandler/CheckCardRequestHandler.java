@@ -56,15 +56,15 @@ public class CheckCardRequestHandler extends AbstractMessageHandler {
 		
 		if (resultCode == GameResultCode.SUCCESS){
 			// Broadcast to all other players.		
-			boolean sendToSelf = false;
-			GameMessage.Builder builder = GameMessageProtos.GameMessage.newBuilder()
+			GameMessage broadcastMessage = GameMessageProtos.GameMessage.newBuilder()
 					.setCommand(GameCommandType.CHECK_CARD_REQUEST)
 					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
 					.setSessionId(session.getSessionId())
 					.setUserId(userId)
-					.setCheckCardRequest(request);
+					.setCheckCardRequest(request)
+					.build();
 			
-			NotificationUtils.broadcastNotification(session, builder, sendToSelf);
+			NotificationUtils.broadcastNotification(session, userId, broadcastMessage);
 			
 			// Player can check card anytime, so need to check is it my turn to
 			// decide whether to fire the event to make the state machine transit

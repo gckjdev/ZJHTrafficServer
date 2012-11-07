@@ -43,19 +43,20 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		
 		Action initGame        		    = new CommonGameAction.InitGame();
 		Action clearTimer		 			 = new CommonGameAction.ClearTimer();
+		Action prepareRobot				 = new CommonGameAction.PrepareRobot();
+		Action clearRobotTimer			 = new CommonGameAction.ClearRobotTimer();
 		Action selectPlayer 			 	 = new CommonGameAction.SelectPlayUser();
 		Action startPlayGame 			 = new CommonGameAction.StartGame();
-		Action broadcastNextPlayerNotification
-												 = new ZjhGameAction.BroadcastNextPlayerNotification();
+		Action finishPlayGame			 = new CommonGameAction.FinishGame();
 		Action setStartGameTimer 		 = new CommonGameAction.CommonTimer(START_GAME_TIMEOUT, ZjhGameAction.ZjhTimerType.START_GAME);
-		Action notifyGameStartAndDealTimer 
-												 = new ZjhGameAction.NotifyGameStartAndDealTimer();
 		Action setWaitClaimTimer		 = new CommonGameAction.CommonTimer(WAIT_CLAIM_TIMEOUT, ZjhGameAction.ZjhTimerType.WAIT_CLAIM);
 		Action kickPlayUser     		 = new CommonGameAction.KickPlayUser(); 
 		Action setOneUserWaitTimer		 = new CommonGameAction.SetOneUserWaitTimer();
-		Action prepareRobot				 = new ZjhGameAction.PrepareRobot();
-		Action clearRobotTimer			 = new ZjhGameAction.ClearRobotTimer();
+		Action notifyGameStartAndDealTimer 
+												 = new ZjhGameAction.NotifyGameStartAndDealTimer();
 		Action notifyGameStartAndDeal  = new ZjhGameAction.NotifyGameStartAndDeal(); 
+		Action broadcastNextPlayerNotification
+												 = new ZjhGameAction.BroadcastNextPlayerNotification();
 		Action completeGame				 = new ZjhGameAction.CompleteGame();
 		Action setShowResultTimer		 = new ZjhGameAction.SetShowResultTimer();
 		Action clearPlayingStatus		 = new ZjhGameAction.ClearAllPlayingStatus();
@@ -64,7 +65,8 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		Action autoFoldCard            = new ZjhGameAction.AutoFoldCard();
 		Action setTotalBet				 = new ZjhGameAction.SetTotalBet();
 		Action setAllPlayerLoseGameToFalse
-												  = new ZjhGameAction.SetAllPlayerLoseGameToFalse();
+												 = new ZjhGameAction.SetAllPlayerLoseGameToFalse();
+		Action updateQuitPlayerInfo	 = new ZjhGameAction.UpdateQuitPlayerInfo();
 		
 		Condition checkUserCount = new CommonGameCondition.CheckUserCount();
 		 
@@ -161,7 +163,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 						.addEmptyTransition(GameCommandType.LOCAL_SHOW_CARD) // 亮牌
 						.addTransition(GameCommandType.LOCAL_COMPARE_CARD,GameStateKey.PLAYER_COMPARE_CARD) // 比牌
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.PLAY_USER_QUIT)
-						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.CREATE)
+						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME)
 						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.TIMEOUT_FOLD_CARD) // 超时没作出选择，视为弃牌
 						.addTransition(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌导致游戏可结束
@@ -220,9 +222,10 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 							}
 						});
 		
+		
 		stateMachine.addState(new GameState(GameStateKey.PLAY_USER_QUIT))
+						.addAction(updateQuitPlayerInfo) // 必须在kickPlayUser前执行，因为要用到userId
 						.addAction(kickPlayUser)
-						.addAction(setAlivePlayerCout)
 						.setDecisionPoint(new DecisionPoint(null){
 							@Override
 							public Object decideNextState(Object context){					
@@ -236,6 +239,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 						});
 					
 		
+		
 		stateMachine.addState(new GameState(GameStateKey.COMPLETE_GAME))
 						.addAction(completeGame)
 						.setDecisionPoint(new DecisionPoint(null){
@@ -248,12 +252,14 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		
 		stateMachine.addState(new GameState(GameStateKey.SHOW_RESULT))
 						.addAction(setShowResultTimer)
+						.addAction(finishPlayGame)
 						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)			
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)
+						.addAction(clearTimer)
 						.addAction(restartGame);
 	
 		stateMachine.printStateMachine();		

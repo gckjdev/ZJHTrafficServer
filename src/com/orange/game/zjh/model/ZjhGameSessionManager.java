@@ -28,7 +28,7 @@ public class ZjhGameSessionManager extends GameSessionManager {
 			return;
 		}
 				
-		boolean removeUser = (user.isPlaying() == false || sessionUserCount == 1);
+		boolean removeUser = true;
 		
 		if (!removeUser){
 			session.takeOverUser(userId);
@@ -44,6 +44,9 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		else {
 			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
 		}			
+		
+		// 在断开连接前，要先更新该玩家的一些信息，以免断开连接后找不到userId
+		((ZjhGameSession)session).updateQuitPlayerInfo(userId);
 		
 		// broadcast user exit message to all other users
 		NotificationUtils.broadcastUserStatusChangeNotification(session, userId);			

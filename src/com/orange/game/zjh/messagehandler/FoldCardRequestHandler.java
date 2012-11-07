@@ -3,6 +3,7 @@ package com.orange.game.zjh.messagehandler;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.MessageEvent;
 
+import com.orange.common.log.ServerLog;
 import com.orange.game.traffic.messagehandler.AbstractMessageHandler;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.server.GameEventExecutor;
@@ -24,6 +25,7 @@ public class FoldCardRequestHandler extends AbstractMessageHandler {
 	public void handleRequest(GameMessage message, Channel channel,
 			GameSession session) {
 
+		ServerLog.info(session.getSessionId(), "Get foldCard Request = " + message.toString());
 		GameResultCode resultCode;
 		String userId = message.getUserId();
 		FoldCardRequest request = message.getFoldCardRequest();
@@ -57,15 +59,15 @@ public class FoldCardRequestHandler extends AbstractMessageHandler {
 		
 		if (resultCode == GameResultCode.SUCCESS){
 			// Broadcast to all other players.		
-			boolean sendToSelf = false;
-			GameMessage.Builder builder = GameMessageProtos.GameMessage.newBuilder()
+			GameMessage broadcastMessage = GameMessageProtos.GameMessage.newBuilder()
 					.setCommand(GameCommandType.FOLD_CARD_REQUEST)
 					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
 					.setSessionId(session.getSessionId())
 					.setUserId(userId)
-					.setFoldCardRequest(request);
+					.setFoldCardRequest(request)
+					.build();
 			
-			NotificationUtils.broadcastNotification(session, builder, sendToSelf);
+			NotificationUtils.broadcastNotification(session, userId, broadcastMessage);
 			
 			// Player can check card anytime, so need to check is it my turn to
 			// decide whether to fire the event to make the state machine transit

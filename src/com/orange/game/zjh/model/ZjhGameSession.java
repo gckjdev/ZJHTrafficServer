@@ -37,24 +37,22 @@ public class ZjhGameSession extends GameSession {
 	private int[] pokerPool = new int[ZjhGameConstant.ALL_CARD_NUM];
 	private int pokerPoolCursor = 0;
 	
-	// we mean "alive" by implication that a  player hasn't folded card, losed the game, quitted the game during playing.
-	private AtomicInteger alivePlayerCount;
-	// the session's default singleBet 
+	// 指未弃牌，游戏未输，游戏过程中没退出的玩家个数
+	private AtomicInteger alivePlayerCount = new AtomicInteger(0);
+	// 房间当前单注值， 默认值跟房间类型有关
 	private int singleBet;
-	// the session's totalBet
+	// 房间当前总注
 	private int totalBet;
 	
 	// 每个玩家的扑克
 	private Map<String, List<PBPoker>> userPokersMap = new ConcurrentHashMap<String, List<PBPoker>>();
 	// 每个玩家的牌型数据结构
 	private Map<String, PBZJHCardType> cardTypeMap = new ConcurrentHashMap<String, PBZJHCardType>();
-	// 每个玩家的牌面值和花色值信息, 与userPokersMap有重复，只是方便比牌时操作
+	// 每个玩家的牌面值和花色值信息, 与userPokersMap有重复。方便比牌时操作
 	private Map<String, Integer> rankMaskMap = new ConcurrentHashMap<String, Integer>();
 	private Map<String, Integer> suitMaskMap = new ConcurrentHashMap<String, Integer>();
 	// 每个玩家的扑克是否亮牌， 方便亮牌操作
 	private Map<String, Integer> faceStatusMap = new ConcurrentHashMap<String, Integer>();
-	// 每个玩家的单注
-	private Map<String, Integer> singleBetMap =  new ConcurrentHashMap<String, Integer>();
 	// 每个玩家的总注
 	private Map<String, Integer> totalBetMap =  new ConcurrentHashMap<String, Integer>();
 		
@@ -104,7 +102,6 @@ public class ZjhGameSession extends GameSession {
 		rankMaskMap.clear();
 		suitMaskMap.clear();
 		faceStatusMap.clear();
-		singleBetMap.clear();
 		totalBetMap.clear();
 		userPlayInfoMask.clear();
 	}
@@ -128,6 +125,7 @@ public class ZjhGameSession extends GameSession {
 	}
 	
 	
+	// 开局，发送StartGameNotification时调用此方法
 	public List<PBZJHUserPlayInfo> deal() {
 		
 		List<PBZJHUserPlayInfo> result = new ArrayList<PBZJHUserPlayInfo>();
@@ -136,11 +134,11 @@ public class ZjhGameSession extends GameSession {
  		// 先洗牌 !
 		shufflePokers();
 		 
-		// 给每个用户发牌，并构造消息
+		// 给每个玩家发牌，并构造消息以便返回
 		for(GameUser user : gameUsers) {
 			String userId = user.getUserId();
 			List<PBPoker> pokers = dispatchPokers();
-			// 按牌面值大小排序，以方便后续比牌操作使用,然后存起来备用
+			// 按牌面值大小排序，以方便后续比牌操作, 存起备用
 			Collections.sort(pokers, new Comparator<PBPoker>() {
 				@Override
 				public int compare(PBPoker p1, PBPoker p2) {
@@ -159,8 +157,7 @@ public class ZjhGameSession extends GameSession {
 			ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: " + pokers.toString()
 					+", cardType is " + cardType);
 			
-			int perTotalBet = getSingleBet(); // at beginning it equals to singlebet.
-			singleBetMap.put(userId, getSingleBet());
+			int perTotalBet = getSingleBet(); // 一开局等于单注
 			totalBetMap.put(userId, perTotalBet);
 			
 			userPlayInfoMask.put(userId, ZjhGameConstant.USER_INFO_INITIAL_VALUE);
@@ -175,7 +172,7 @@ public class ZjhGameSession extends GameSession {
 	private void shufflePokers() {
 
 		// 洗牌！
-		// 前51张中随机一张跟最后一张交换，然后，前50张中随机一张跟倒数第二张
+		// 前(ALL_CARD_NUM - 1)张中随机一张跟最后一张交换，然后，前(ALL_CARD_NUM - 2)张中随机一张跟倒数第二张
 		// 交换，etc.这样，就可以把牌洗得很乱。
 		for (int i = ZjhGameConstant.ALL_CARD_NUM - 1; i > 0; i--) {
 			int random = RandomUtils.nextInt(i);
@@ -188,16 +185,17 @@ public class ZjhGameSession extends GameSession {
 	}
 	
 	
-	// dispatch pokers for each player
+	// 针对一个扑克堆操作，需加synchronized
 	private synchronized List<PBPoker> dispatchPokers() {
 		
 		List<PBPoker> result = new ArrayList<PBPoker>();
 		PBPokerRank rank = null;
 		PBPokerSuit suit = null;
 		PBPoker pbPoker = null;
+		int  oldCursor = pokerPoolCursor;
 		
 		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
-		for (int i = pokerPoolCursor; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
+		for (int i = oldCursor; i < oldCursor + ZjhGameConstant.PER_USER_CARD_NUM; i++) {
 			rank = PBPokerRank.valueOf(pokerPool[i] / 4 + 2);
 			suit = PBPokerSuit.valueOf(pokerPool[i] % 4 + 1);
 			int pokerId =  toPokerId(rank, suit);
@@ -210,7 +208,7 @@ public class ZjhGameSession extends GameSession {
 								.setFaceUp(faceup)
 								.build();
 			result.add(pbPoker);		
-			pokerPoolCursor++; // 扑克堆游标，游标前面的表示已经发出的牌
+			pokerPoolCursor++; // 扑克堆游标，游标前面的表示已经发出的牌, 每发出一张牌就把游标前移一个元素。
 		}
 		
 		return result;
@@ -313,7 +311,15 @@ public class ZjhGameSession extends GameSession {
 	}
 
 	
-	public GameResultCode bet(String userId, int perSingleBet, int count,
+	private PBPokerSuit pokerIdToSuit(int pokerId) {
+		
+		// see protocol buffer for why plusing 1
+		int value = pokerId % ZjhGameConstant.SUIT_TYPE_NUM + 1;
+		
+		return PBPokerSuit.valueOf(value);
+	}
+	
+	public GameResultCode bet(String userId, int givenSingleBet, int count,
 			boolean isAutoBet) {
 		
 		if ( !userPlayInfoMask.containsKey(userId) ) {
@@ -321,13 +327,13 @@ public class ZjhGameSession extends GameSession {
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
 		} 
 		else {
-			// Update his/her single bet.
-			int oldSingleBet = singleBetMap.get(userId);
-			singleBetMap.put(userId, perSingleBet);
+			// Update the single bet.
+			int oldSingleBet = singleBet;
+			singleBet = givenSingleBet;
 					
 			// Update his/her total bet.
 			int tmp = totalBetMap.get(userId);
-			totalBetMap.put(userId, tmp + perSingleBet * count);
+			totalBetMap.put(userId, tmp + givenSingleBet * count);
 				
 			int oldValue = userPlayInfoMask.get(userId);
 			// Clear the last action first.
@@ -336,7 +342,7 @@ public class ZjhGameSession extends GameSession {
 			if ( isAutoBet ) {
 					// 更新lastAction, 并置状态为AUTO_BET
 					userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_AUTO_BET | USER_INFO_AUTO_BET);
-			} else if ( oldSingleBet < perSingleBet ) {
+			} else if ( oldSingleBet < givenSingleBet ) {
 					userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_RAISE_BET);
 			} else { 
 					userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_BET);
@@ -385,13 +391,13 @@ public class ZjhGameSession extends GameSession {
 				int oldValue = userPlayInfoMask.get(userId);
 				// Clear the last action first.
 				oldValue &= ~LAST_ACTION_MASK;
-				userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_FOLD_CARD | USER_INFO_FOLDED_CARD);
+				userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_FOLD_CARD | USER_INFO_FOLDED_CARD | USER_INFO_LOSED_GAME);
 				// 递减存活玩家个数
 				alivePlayerCount.decrementAndGet(); // he/she is game over
-				// 把玩家loseGame状态设为true，以免在selectPlayUser时被选择到。
+				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
 				GameUserManager.getInstance().findUserById(userId).setLoseGame(true);
 				
-				ServerLog.info(sessionId, "After fold card, alivePlayerCount= " + alivePlayerCount);
+				ServerLog.info(sessionId, "After "+userId+" folding card, alivePlayerCount= " + alivePlayerCount);
 			}
 		}
 		return GameResultCode.SUCCESS;
@@ -405,11 +411,6 @@ public class ZjhGameSession extends GameSession {
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
 		} 
 		else {
-			int userInfo = userPlayInfoMask.get(userId);
-			if ( (userInfo & USER_INFO_SHOWED_CARD) == USER_INFO_SHOWED_CARD ) {
-				ServerLog.info(sessionId, "<ZjhGameSessuion.showCard> "+ userId+ "has showed card !!! Can not show again");
-				return GameResultCode.ERROR_ALREADY_SHOW_CARD;
-			}
 			
 			// 亮牌.
 			int faceStatusMask = faceStatusMap.get(userId);
@@ -417,6 +418,7 @@ public class ZjhGameSession extends GameSession {
 			for ( Integer showPokerId : pokerIds ) {
 				int rank = pokerIdToRank(showPokerId).ordinal();
 				faceStatusMask |= (1 << rank); // 把对应位置为1, 表示该牌亮出来了
+				ServerLog.info(sessionId, userId + " shows card : " + PBPokerRank.valueOf(rank+2)+"[suit:" + pokerIdToSuit(showPokerId)+"]" );
 			}
 			// 亮完牌， 把其他无意义位置0,以免混淆
 			faceStatusMask &= ~rankMask;
@@ -428,7 +430,7 @@ public class ZjhGameSession extends GameSession {
 			oldValue &= ~LAST_ACTION_MASK;
 			userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_SHOW_CARD | USER_INFO_SHOWED_CARD);
 		}
-		return null;
+		return GameResultCode.SUCCESS;
 	}
 
 
@@ -527,7 +529,7 @@ public class ZjhGameSession extends GameSession {
 				
 		// 有一个玩家输了
 		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
-		GameUserManager.getInstance().findUserById(userId).setLoseGame(true);
+		GameUserManager.getInstance().findUserById(loser).setLoseGame(true); //设玩家游戏状态为loseGame为true
 		
 		// 构造userResult以返回
 		userResults.clear();
@@ -558,34 +560,34 @@ public class ZjhGameSession extends GameSession {
 		
 		for(GameUser user : gameUsers) {
 			result.add( updateUserPlayInfo(user.getUserId()) );
+			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo for !"+ user.getNickName());
 		}
 		
 		return result;
 	}
 
 	
-	// 游戏中途玩家加入时，调用这个方法更新userPlayInfoList,以传给加入的玩家
-	public synchronized PBZJHUserPlayInfo updateUserPlayInfo(String userId) {
+	// 一开局， 以及游戏中途玩家加入时，调用这个方法更新userPlayInfoList,以传给客户端
+	public PBZJHUserPlayInfo updateUserPlayInfo(String userId) {
 		
 		List<PBPoker> pbPokers = new ArrayList<PBPoker>();
 			
-		int rankMask = rankMaskMap.get(userId);
-		int suitMask = suitMaskMap.get(userId);
+		List<PBPoker> pbPokerList =  userPokersMap.get(userId);
 		int faceStatus = faceStatusMap.get(userId);
-		for ( int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
-			int tmp = IntegerUtil.forPosition(rankMask, 0x1FFF, i, 0); 
-			PBPokerRank rank = PBPokerRank.valueOf(tmp+2);
-			PBPokerSuit suit = PBPokerSuit.valueOf(IntegerUtil.forPosition(suitMask, 0x1FFF, i, 0)+1);
+		for ( PBPoker pbPoker : pbPokerList ) {
+			PBPokerRank rank = pbPoker.getRank();
+			PBPokerSuit suit = pbPoker.getSuit();
 			int pokerId = toPokerId(rank, suit);
-			boolean faceUp = IntegerUtil.testBit(faceStatus, tmp, 1);
+			// faceStatus是亮牌掩码， 检查对应位是否为1, 是表示亮牌，否则表示没亮牌
+			boolean faceUp = IntegerUtil.testBit(faceStatus, rank.ordinal(), 1);
 				
-			PBPoker pbPoker = PBPoker.newBuilder()
+			PBPoker newPBPoker = PBPoker.newBuilder()
 							.setPokerId(pokerId)
 							.setRank(rank)
 							.setSuit(suit)
 							.setFaceUp(faceUp)
 							.build();
-			pbPokers.add(pbPoker);				
+			pbPokers.add(newPBPoker);
 		}
 			
 		PBZJHPoker zjhPoker = PBZJHPoker.newBuilder()
@@ -659,7 +661,6 @@ public class ZjhGameSession extends GameSession {
 		totalBet = singleBet*playUserCount;
 	}
 
-
 	
 	public void judgeWhowins() {
 		
@@ -676,10 +677,24 @@ public class ZjhGameSession extends GameSession {
 						.setWin(win)
 						.setGainCoins(gainCoins)
 						.build();
-				
+
+			// 必须清除userResults先，因为之前比牌操作的结果也存放在其中
 			userResults.clear();
 			userResults.put(userId, result);
 		}
-		
 	}
+
+
+	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame
+	public void updateQuitPlayerInfo(String userId) {
+		
+		ServerLog.info(sessionId, "<ZjhGameSession.updateQuitPlayerInfo>" +
+				"quits the game, so set he/she to lose game status");
+		int playInfoMask = userPlayInfoMask.get(userId);
+		userPlayInfoMask.put(userId, playInfoMask | USER_INFO_LOSED_GAME ); 
+		// 同时需要把alivePlayerCount递减
+		alivePlayerCount.decrementAndGet();
+	}
+	
+	
 }

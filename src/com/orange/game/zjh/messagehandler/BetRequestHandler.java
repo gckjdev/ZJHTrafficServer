@@ -41,6 +41,7 @@ public class BetRequestHandler extends AbstractMessageHandler {
 			resultCode = GameResultCode.ERROR_USERID_NULL;
 		}
 		else {
+			ServerLog.info(session.getSessionId(), "Get bet request from :" + message.getUserId() );
 			int singleBet = request.getSingleBet(); // 单注
 			int count = request.getCount(); // 注数
 			boolean isAutoBet = request.getIsAutoBet(); // 是否自动跟注

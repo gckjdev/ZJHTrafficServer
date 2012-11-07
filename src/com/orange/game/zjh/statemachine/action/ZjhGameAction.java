@@ -26,30 +26,9 @@ import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 public class ZjhGameAction{
 
-	public static class SetAllPlayerLoseGameToFalse implements Action {
-
-		@Override
-		public void execute(Object context) {
-			// make all user not playing
-			ZjhGameSession session = (ZjhGameSession)context;
-			session.getUserList().setAllPlayerLoseGameToFalse();
-		}
-	}
-
-
 	public enum  ZjhTimerType {
 		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, NOTIFY_GAME_START_AND_DEAL,
 		;
-	}
-
-	
-	public static class ClearAllPlayingStatus implements Action {
-
-		@Override
-		public void execute(Object context) {
-			ZjhGameSession session = (ZjhGameSession)context;
-			session.getUserList().setAllPlayerLoseGameToFalse();
-		}
 	}
 
 	
@@ -77,7 +56,9 @@ public class ZjhGameAction{
 		@Override
 		public void execute(Object context) {
 			ZjhGameSession session = (ZjhGameSession)context;
-			session.foldCard(session.getCurrentPlayUserId());
+			String userId = session.getCurrentPlayUserId();
+			ServerLog.info(session.getSessionId(), "auto fold card user is " + userId);
+			session.foldCard(userId);
 		}
 
 	}
@@ -105,26 +86,6 @@ public class ZjhGameAction{
 	}
 	
 	
-		public static class PrepareRobot implements Action {
-
-			@Override
-			public void execute(Object context) {
-				GameSession session = (GameSession)context;
-				GameEventExecutor.getInstance().prepareRobotTimer(session, RobotService.getInstance());
-			}
-
-		}
-		
-		public static class ClearRobotTimer implements Action {
-
-			@Override
-			public void execute(Object context) {
-				GameSession session = (GameSession)context;
-				session.clearRobotTimer();
-			}
-
-		}
-
 		public static class NotifyGameStartAndDeal implements Action {
 		
 			private GameMessage makeGameStartNotification(int totalBet, int singleBet,
@@ -148,30 +109,30 @@ public class ZjhGameAction{
 				return message;
 			}
 			
-			private void broadcastBetNofication(GameSession session,int singleBet, int count, boolean isAutoBet) {
-
-				List<GameUser> list = session.getUserList().getAllUsers();
-				for (GameUser user : list){		
-					BetRequest request = BetRequest.newBuilder()
-							.setSingleBet(singleBet)
-							.setCount(count)
-							.setIsAutoBet(isAutoBet)
-							.build();
+//			private void broadcastBetNofication(GameSession session,int singleBet, int count, boolean isAutoBet) {
+//
+//				List<GameUser> list = session.getUserList().getAllUsers();
+//				for (GameUser user : list){		
+//					BetRequest request = BetRequest.newBuilder()
+//							.setSingleBet(singleBet)
+//							.setCount(count)
+//							.setIsAutoBet(isAutoBet)
+//							.build();
+//				
+//					GameMessage message = GameMessage.newBuilder()
+//						.setCommand(GameCommandType.BET_REQUEST)
+//						.setMessageId(GameEventExecutor.getInstance().generateMessageId())
+//						.setBetRequest(request)
+//						.setUserId(user.getUserId())
+//						.build();
+//
+//					ServerLog.info(session.getSessionId(), "betNotification for "
+//							+ user.getUserId() +" is :"+ message.toString());
+//					// send notification for the user			
+//					HandlerUtils.sendMessage(message, user.getChannel());
+//				}	
 				
-					GameMessage message = GameMessage.newBuilder()
-						.setCommand(GameCommandType.BET_REQUEST)
-						.setMessageId(GameEventExecutor.getInstance().generateMessageId())
-						.setBetRequest(request)
-						.setUserId(user.getUserId())
-						.build();
-
-					ServerLog.info(session.getSessionId(), "betNotification for "
-							+ user.getUserId() +" is :"+ message.toString());
-					// send notification for the user			
-					HandlerUtils.sendMessage(message, user.getChannel());
-				}	
-				
-			}
+//			}
 		
 		@Override
 		public void execute(Object context) {
@@ -186,7 +147,7 @@ public class ZjhGameAction{
 			GameMessage startMessage = makeGameStartNotification(totalBet, singleBet, userPlayInfo);
 			NotificationUtils.broadcastNotification(session, startMessage);
 			
-			broadcastBetNofication(session, singleBet, 1, false);
+//			broadcastBetNofication(session, singleBet, 1, false);
 		}
 
 	}
@@ -317,4 +278,37 @@ public class ZjhGameAction{
 	}
 
 
+	
+	public static class UpdateQuitPlayerInfo implements Action {
+
+		@Override
+		public void execute(Object context) {
+			ZjhGameSession session = (ZjhGameSession)context;
+			session.updateQuitPlayerInfo(session.getCurrentPlayUserId());
+		}
+
+	}
+
+
+	public static class SetAllPlayerLoseGameToFalse implements Action {
+
+		@Override
+		public void execute(Object context) {
+			// make all user not playing
+			ZjhGameSession session = (ZjhGameSession)context;
+			session.getUserList().setAllPlayerLoseGameToFalse();
+		}
+	}
+
+
+	
+	public static class ClearAllPlayingStatus implements Action {
+
+		@Override
+		public void execute(Object context) {
+			ZjhGameSession session = (ZjhGameSession)context;
+			session.getUserList().clearAllUserPlaying();
+		}
+	}
+	
 }

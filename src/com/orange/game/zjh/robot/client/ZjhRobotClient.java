@@ -161,6 +161,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		betTimes = 0;
 		singleBet = 5;
 		count = 1;
+		
 	}
 	
 	@Override
