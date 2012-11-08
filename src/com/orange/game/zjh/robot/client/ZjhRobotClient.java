@@ -42,7 +42,6 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		oldExp = experience = user.getExpByAppId(DBConstants.APPID_ZHAJINHUA);
 		level = user.getLevelByAppId(DBConstants.APPID_ZHAJINHUA); 
 		balance = user.getBalance();
-		dbclient = new MongoDBClient(DBConstants.D_GAME);
 	}
 	
 	@Override
