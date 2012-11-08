@@ -160,8 +160,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	public void resetPlayData(boolean robotWinThisGame) {
 		betTimes = 0;
 		singleBet = 5;
-		count = 1;
-		
+		count = 1;		
 	}
 	
 	@Override
@@ -172,21 +171,8 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	
 	@Override
 	public String getGameId() {
-		return DBConstants.ZHAJINHUA_GAME_ID;
+		return DBConstants.GAME_ID_ZJH;
 	}		
-
-	@Override
-	public boolean updateLevelAndExp() {
-			   
-		 boolean result = false;
-			   // TODO
-		  DBObject object = UserManager.updateLevelAndExp(dbclient, userId, DBConstants.ZHAJINHUA_GAME_ID, experience, level, true, ServiceConstant.CONST_SYNC_TYPE_UPDATE, 0);  
-		  if ( object != null) {
-			   result = true;
-		    }
-		   return result;
-	}
-
 	
 	@Override
 	public PBGameUser toPBGameUserSpecificPart(Builder builder) {
