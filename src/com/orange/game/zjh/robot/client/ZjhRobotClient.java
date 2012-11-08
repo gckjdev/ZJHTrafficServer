@@ -42,7 +42,6 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		oldExp = experience = user.getExpByAppId(DBConstants.APPID_ZHAJINHUA);
 		level = user.getLevelByAppId(DBConstants.APPID_ZHAJINHUA); 
 		balance = user.getBalance();
-		dbclient = new MongoDBClient(DBConstants.D_GAME);
 	}
 	
 	@Override
@@ -160,8 +159,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	public void resetPlayData(boolean robotWinThisGame) {
 		betTimes = 0;
 		singleBet = 5;
-		count = 1;
-		
+		count = 1;		
 	}
 	
 	@Override
@@ -169,19 +167,11 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		// TODO: a fake appId, you'd better not call this method.
 		return DBConstants.APPID_ZHAJINHUA;
 	}
-
+	
 	@Override
-	public boolean updateLevelAndExp() {
-			   
-		 boolean result = false;
-			   // TODO
-		  DBObject object = UserManager.updateLevelAndExp(dbclient, userId, DBConstants.GAME_ID_ZJH, experience, level, true, ServiceConstant.CONST_SYNC_TYPE_UPDATE, 0);  
-		  if ( object != null) {
-			   result = true;
-		    }
-		   return result;
-	}
-
+	public String getGameId() {
+		return DBConstants.GAME_ID_ZJH;
+	}		
 	
 	@Override
 	public PBGameUser toPBGameUserSpecificPart(Builder builder) {

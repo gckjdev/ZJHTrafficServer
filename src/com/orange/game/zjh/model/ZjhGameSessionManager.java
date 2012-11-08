@@ -17,7 +17,7 @@ public class ZjhGameSessionManager extends GameSessionManager {
 	}
 
 	@Override
-	public void userQuitSession(GameSession session, String userId, boolean needFireEvent) {
+	public void userQuitSession(GameSession session, String userId, boolean needFireEvent, boolean needRemoveUserChannel) {
 		int sessionId = session.getSessionId();
 		ServerLog.info(sessionId, "user "+userId+" quit");
 
@@ -57,7 +57,7 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		}
 		
 		if (removeUser){
-			SessionUserService.getInstance().removeUser(session, userId);
+			SessionUserService.getInstance().removeUser(session, userId, needRemoveUserChannel);
 		}
 	}
 
