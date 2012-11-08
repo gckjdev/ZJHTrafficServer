@@ -67,6 +67,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		Action setAllPlayerLoseGameToFalse
 												 = new ZjhGameAction.SetAllPlayerLoseGameToFalse();
 		Action updateQuitPlayerInfo	 = new ZjhGameAction.UpdateQuitPlayerInfo();
+		Action setSelectPlayerWaitTimer= new ZjhGameAction.SetSelectPlayerWaitTimer();
 		
 		Condition checkUserCount = new CommonGameCondition.CheckUserCount();
 		 
@@ -127,6 +128,15 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 						.addAction(clearTimer);
 						
 		
+		stateMachine.addState(new GameState(GameStateKey.SELECT_PLAYER_WAIT_TIMER))
+						.addAction(setSelectPlayerWaitTimer)
+						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.PLAY_USER_QUIT)
+						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME)
+						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.TIMEOUT_FOLD_CARD) // 超时没作出选择，视为弃牌
+						.addTransition(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌导致游戏可结束
+						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN) 
+						.addAction(clearTimer);	
 		
 		stateMachine.addState(new GameState(GameStateKey.SELECT_NEXT_PLAYER))
 						.addAction(clearTimer) // clear last player's timer
@@ -136,7 +146,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 							public Object decideNextState(Object context){
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount <= 1 )
+								if ( alivePlayerCount == 1 )
 									return GameStateKey.COMPLETE_GAME;
 								else {
 									GameUser user = session.getCurrentPlayUser();
@@ -200,7 +210,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 							public Object decideNextState(Object context){
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount(); // 此时获得的aliveCount不算上弃牌的用户
-								if ( alivePlayerCount < 2 ) 
+								if ( alivePlayerCount == 1 ) // 弃牌后只剩一个存活玩家 
 									return GameStateKey.COMPLETE_GAME;
 								else 
 									return GameStateKey.SELECT_NEXT_PLAYER;
@@ -215,7 +225,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 							public Object decideNextState(Object context){
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount <= 2 )
+								if ( alivePlayerCount == 1 ) // 弃牌后只剩一个存活玩家
 									return GameStateKey.COMPLETE_GAME;
 								else 
 									return GameStateKey.SELECT_NEXT_PLAYER;

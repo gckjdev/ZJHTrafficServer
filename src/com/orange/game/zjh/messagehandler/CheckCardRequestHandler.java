@@ -12,6 +12,7 @@ import com.orange.network.game.protocol.constants.GameConstantsProtos.GameComman
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
 import com.orange.network.game.protocol.message.GameMessageProtos;
 import com.orange.network.game.protocol.message.GameMessageProtos.CheckCardRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.CheckCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 
 public class CheckCardRequestHandler extends AbstractMessageHandler {
@@ -43,11 +44,15 @@ public class CheckCardRequestHandler extends AbstractMessageHandler {
 		
 		
 		// Now build the response.
+		// Empty checkCard response
+		CheckCardResponse checkCardResponse = CheckCardResponse.newBuilder().build();
+		
 		GameMessage response = GameMessage.newBuilder()
 				.setCommand(GameCommandType.CHECK_CARD_RESPONSE)
 				.setMessageId(message.getMessageId())
 				.setResultCode(resultCode)
 				.setUserId(userId)
+				.setCheckCardResponse(checkCardResponse)
 				.build();
 		
 		// Send it.

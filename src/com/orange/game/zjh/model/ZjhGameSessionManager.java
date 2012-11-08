@@ -63,7 +63,7 @@ public class ZjhGameSessionManager extends GameSessionManager {
 
 	@Override
 	public String getGameId() {
-		return ZjhGameConstant.ZJH_GAME_ID;
+		return ZjhGameConstant.GAME_ID_ZJH;
 	}
 
 	

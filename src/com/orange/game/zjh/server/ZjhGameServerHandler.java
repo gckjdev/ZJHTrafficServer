@@ -9,7 +9,6 @@ import com.orange.game.traffic.messagehandler.room.GetRoomRequestHandler;
 import com.orange.game.traffic.messagehandler.room.RegisterRoomsRequestHandler;
 import com.orange.game.traffic.messagehandler.room.UnRegisterRoomsRequestHandler;
 import com.orange.game.traffic.model.dao.GameSession;
-import com.orange.game.traffic.model.manager.GameSessionManager;
 import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.game.traffic.server.GameServerHandler;
 import com.orange.game.zjh.messagehandler.BetRequestHandler;
@@ -31,13 +30,13 @@ public class ZjhGameServerHandler extends GameServerHandler {
 		GameMessage message = (GameMessage)messageEvent.getMessage();
 		
 		
-		int sessionId = (int) message.getSessionId();
-		GameSession session = 
-			GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId);
-		// 当session为null，一般是随机加入房间时; 当其不为null, 并且游戏状态不为playing, 忽略不响应。
-		if ( session != null && session.getStatus() != GameSession.SessionStatus.PLAYING.ordinal() ) {
-			return null;
-		}
+//		int sessionId = (int) message.getSessionId();
+//		GameSession session = 
+//			GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId);
+//		// 当session为null，一般是随机加入房间时; 当其不为null, 并且游戏状态不为playing, 忽略不响应。
+//		if ( session != null && session.getStatus() != GameSession.SessionStatus.PLAYING.ordinal() ) {
+//			return null;
+//		}
 		
 		switch (message.getCommand()){
 			case CREATE_ROOM_REQUEST:

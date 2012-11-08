@@ -55,7 +55,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				break;
 			case NEXT_PLAYER_START_NOTIFICATION_REQUEST:
 				if (message.getCurrentPlayUserId().equals(userId)){
-					if ( betTimes <=17) {
+					if ( betTimes <= 5) {
 						scheduleSend(singleBet, count, false);
 						betTimes++;
 					} else {
@@ -76,7 +76,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				break;
 			case FOLD_CARD_REQUEST:
 				break;
-			case SHOW_CARD_REQUEST:
+			case SHOW_CARD_REQUEST: 
 				break;
 			default:
 				break;
@@ -147,7 +147,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		GameMessage message = GameMessage.newBuilder()
 				.setFoldCardRequest(request)
 				.setMessageId(getClientIndex())
-				.setCommand(GameCommandType.BET_REQUEST)
+				.setCommand(GameCommandType.FOLD_CARD_REQUEST)
 				.setUserId(userId)
 				.setSessionId(sessionId)
 				.build();
@@ -175,7 +175,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 			   
 		 boolean result = false;
 			   // TODO
-		  DBObject object = UserManager.updateLevelAndExp(dbclient, userId, DBConstants.ZHAJINHUA_GAME_ID, experience, level, true, ServiceConstant.CONST_SYNC_TYPE_UPDATE, 0);  
+		  DBObject object = UserManager.updateLevelAndExp(dbclient, userId, DBConstants.GAME_ID_ZJH, experience, level, true, ServiceConstant.CONST_SYNC_TYPE_UPDATE, 0);  
 		  if ( object != null) {
 			   result = true;
 		    }

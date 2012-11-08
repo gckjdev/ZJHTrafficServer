@@ -15,6 +15,7 @@ import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResult
 import com.orange.network.game.protocol.message.GameMessageProtos;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.ShowCardRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.ShowCardResponse;
 
 public class ShowCardRequestHandler extends AbstractMessageHandler {
 
@@ -46,12 +47,16 @@ public class ShowCardRequestHandler extends AbstractMessageHandler {
 		
 		
 		// Now build the response.
+		// Empty showCard response
+		ShowCardResponse showCardResponse = ShowCardResponse.newBuilder().build();
+		
 		GameMessage response = GameMessage.newBuilder()
 				.setCommand(GameCommandType.SHOW_CARD_RESPONSE)
 				.setMessageId(message.getMessageId())
 				.setResultCode(resultCode)
 				.setShowCardRequest(request) 
 				.setUserId(userId)
+				.setShowCardResponse(showCardResponse)
 				.build();
 		
 		// Send it.

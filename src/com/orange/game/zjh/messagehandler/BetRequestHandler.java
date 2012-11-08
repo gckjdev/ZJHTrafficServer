@@ -13,6 +13,7 @@ import com.orange.network.game.protocol.constants.GameConstantsProtos.GameComman
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
 import com.orange.network.game.protocol.message.GameMessageProtos;
 import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.BetResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 
 
@@ -51,12 +52,16 @@ public class BetRequestHandler extends AbstractMessageHandler {
 		
 		
 		// Now build the response.
+		// Empty bet response
+		BetResponse betResponse = BetResponse.newBuilder().build();
+		
 		GameMessage response = GameMessage.newBuilder()
 				.setCommand(GameCommandType.BET_RESPONSE)
 				.setMessageId(message.getMessageId())
 				.setResultCode(resultCode)
 				.setUserId(userId)
 				.setBetRequest(request)
+				.setBetResponse(betResponse)
 				.build();
 		
 		// Send it.

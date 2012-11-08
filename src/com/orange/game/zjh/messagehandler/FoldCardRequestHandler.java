@@ -13,6 +13,7 @@ import com.orange.network.game.protocol.constants.GameConstantsProtos.GameComman
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
 import com.orange.network.game.protocol.message.GameMessageProtos;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 
 public class FoldCardRequestHandler extends AbstractMessageHandler {
@@ -45,12 +46,16 @@ public class FoldCardRequestHandler extends AbstractMessageHandler {
 		
 		
 		// Now build the response.
+		// Empty foldCard response
+		FoldCardResponse foldCardResponse = FoldCardResponse.newBuilder().build();
+		
 		GameMessage response = GameMessage.newBuilder()
 				.setCommand(GameCommandType.FOLD_CARD_RESPONSE)
 				.setMessageId(message.getMessageId())
 				.setResultCode(resultCode)
 				.setFoldCardRequest(request) // insert the request to broadcast to all other players.
 				.setUserId(userId)
+				.setFoldCardResponse(foldCardResponse)
 				.build();
 		
 		// Send it.

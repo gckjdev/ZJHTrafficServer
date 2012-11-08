@@ -196,8 +196,8 @@ public class ZjhGameSession extends GameSession {
 		
 		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
 		for (int i = oldCursor; i < oldCursor + ZjhGameConstant.PER_USER_CARD_NUM; i++) {
-			rank = PBPokerRank.valueOf(pokerPool[i] / 4 + 2);
-			suit = PBPokerSuit.valueOf(pokerPool[i] % 4 + 1);
+			rank = PBPokerRank.valueOf(pokerPool[i] / SUIT_TYPE_NUM + 2);
+			suit = PBPokerSuit.valueOf(pokerPool[i] % SUIT_TYPE_NUM + 1);
 			int pokerId =  toPokerId(rank, suit);
 			boolean faceup = false;
 					
@@ -261,25 +261,26 @@ public class ZjhGameSession extends GameSession {
 		if ( rankMask == ZjhGameConstant.TYPE_SPECIAL ) { 
 			type = PBZJHCardType.SPECIAL; // 最大的牌，2,3,5， 掩码值为 1 1111 1111 0100
 		}
-		else if ( howManyRanks == 3 && ! hasThreeConsecutiveBit) {
-			type = PBZJHCardType.HIGH_CARD; // 散牌， 有三种牌面值，且不是连续的
-		} 
+		else if ( howManyRanks == 1 ) {
+			type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
+		}
+		else if ( howManySuits == 1) {
+			if ( hasThreeConsecutiveBit ) {
+				type = PBZJHCardType.STRAIGHT_FLUSH; // 顺金， 只有一种花色
+			} else {
+				type = PBZJHCardType.FLUSH; // 金花，即同花，只有一种花色
+			}
+		}
+		else if ( hasThreeConsecutiveBit ) {
+			type = PBZJHCardType.STRAIGHT; // 顺子，不只一种花色
+		}
 		else if ( howManyRanks == 2 ) {
 			type = PBZJHCardType.PAIR;  // 对子， 有二种牌面值
 		}
-		else if ( hasThreeConsecutiveBit ) { // 是连续的三种牌面值
-			if ( howManySuits == 1 ) {
-				type = PBZJHCardType.STRAIGHT_FLUSH; // 顺金， 只有一种花色
-			} else {
-				type = PBZJHCardType.STRAIGHT; // 顺子，不只一种花色
-			}
-		}
-		else if ( howManySuits == 1) {
-			type = PBZJHCardType.FLUSH; // 金花，即同花，只有一种花色
-		}
-		else if ( howManyRanks == 1 ) {
-			type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
-		} else {
+		else if ( howManyRanks == 3 && ! hasThreeConsecutiveBit) {
+			type = PBZJHCardType.HIGH_CARD; // 散牌， 有三种牌面值，且不是连续的
+		} 
+		else {
 			type = PBZJHCardType.UNKNOW; // 未知
 		}
 		
@@ -304,7 +305,7 @@ public class ZjhGameSession extends GameSession {
 
 	private PBPokerRank pokerIdToRank(int pokerId) {
 		
-		// see protocol buffer for why plusing 2
+		// see protocol buffer definition for why adding 2
 		int value = pokerId / ZjhGameConstant.SUIT_TYPE_NUM + 2;
 		
 		return PBPokerRank.valueOf(value);
@@ -313,7 +314,7 @@ public class ZjhGameSession extends GameSession {
 	
 	private PBPokerSuit pokerIdToSuit(int pokerId) {
 		
-		// see protocol buffer for why plusing 1
+		// see protocol buffer definition for why adding 1
 		int value = pokerId % ZjhGameConstant.SUIT_TYPE_NUM + 1;
 		
 		return PBPokerSuit.valueOf(value);
@@ -338,7 +339,7 @@ public class ZjhGameSession extends GameSession {
 			int oldValue = userPlayInfoMask.get(userId);
 			// Clear the last action first.
 			oldValue &= ~LAST_ACTION_MASK;
-			// Decide which bet type: bet(跟注), raise bet(加注), auto bet(自动跟注)
+			// Judge which bet type: bet(跟注), raise bet(加注), auto bet(自动跟注)
 			if ( isAutoBet ) {
 					// 更新lastAction, 并置状态为AUTO_BET
 					userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_AUTO_BET | USER_INFO_AUTO_BET);
@@ -384,7 +385,7 @@ public class ZjhGameSession extends GameSession {
 		else {
 			int userInfo = userPlayInfoMask.get(userId);
 			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
-				ServerLog.info(sessionId, "<ZjhGameSessuion.foldCard> "+ userId+ "has folded card !!! Can not fold again");
+				ServerLog.info(sessionId, "<ZjhGameSessuion.foldCard> "+ userId+ " has folded card !!! Can not fold again");
 				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
 			}
 			else {
@@ -395,7 +396,8 @@ public class ZjhGameSession extends GameSession {
 				// 递减存活玩家个数
 				alivePlayerCount.decrementAndGet(); // he/she is game over
 				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
-				GameUserManager.getInstance().findUserById(userId).setLoseGame(true);
+				GameUser user = GameUserManager.getInstance().findUserById(userId);
+				user.setLoseGame(true);
 				
 				ServerLog.info(sessionId, "After "+userId+" folding card, alivePlayerCount= " + alivePlayerCount);
 			}
@@ -467,7 +469,7 @@ public class ZjhGameSession extends GameSession {
 				toUserCardType = HIGH_CARD_VALUE;
 		}
 		
-		// 一般情况
+		// 一般情况, 开始具体比牌操作
 		if ( userCardType < toUserCardType ) {
 				winner = toUserId;
 				loser = userId;
@@ -528,7 +530,9 @@ public class ZjhGameSession extends GameSession {
 		userPlayInfoMask.put(loser, loserOldInfo | USER_INFO_ACTION_COMPARE_CARD | USER_INFO_LOSED_GAME );
 				
 		// 有一个玩家输了
+		ServerLog.info(sessionId, "<compareCard> before deduction, alivePlayerCount = "+alivePlayerCount);
 		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
+		ServerLog.info(sessionId, "<compareCard> after deduction, alivePlayerCount = "+alivePlayerCount);
 		GameUserManager.getInstance().findUserById(loser).setLoseGame(true); //设玩家游戏状态为loseGame为true
 		
 		// 构造userResult以返回
@@ -560,7 +564,7 @@ public class ZjhGameSession extends GameSession {
 		
 		for(GameUser user : gameUsers) {
 			result.add( updateUserPlayInfo(user.getUserId()) );
-			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo for !"+ user.getNickName());
+//			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo of "+ user.getNickName()+" !");
 		}
 		
 		return result;
@@ -658,7 +662,7 @@ public class ZjhGameSession extends GameSession {
 
 	
 	public void setTotalBet(int playUserCount) {
-		totalBet = singleBet*playUserCount;
+		totalBet = singleBet * playUserCount;
 	}
 
 	
@@ -688,10 +692,14 @@ public class ZjhGameSession extends GameSession {
 	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame
 	public void updateQuitPlayerInfo(String userId) {
 		
-		ServerLog.info(sessionId, "<ZjhGameSession.updateQuitPlayerInfo>" +
-				"quits the game, so set he/she to lose game status");
-		int playInfoMask = userPlayInfoMask.get(userId);
-		userPlayInfoMask.put(userId, playInfoMask | USER_INFO_LOSED_GAME ); 
+		// 因为是在游戏开始发牌阶段才把userId加入userPlayInfoMask,
+		// 如果是在开始到发牌之间退出，则不用进行操作。
+		if ( userPlayInfoMask.containsKey(userId)) {
+			int playInfoMask = userPlayInfoMask.get(userId);
+			userPlayInfoMask.put(userId, playInfoMask | USER_INFO_LOSED_GAME ); 
+			ServerLog.info(sessionId, "<ZjhGameSession.updateQuitPlayerInfo>" +
+					"quits the game, so set he/she to loseGame status");
+		}
 		// 同时需要把alivePlayerCount递减
 		alivePlayerCount.decrementAndGet();
 	}

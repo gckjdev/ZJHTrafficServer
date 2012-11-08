@@ -26,12 +26,27 @@ import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 public class ZjhGameAction{
 
+
 	public enum  ZjhTimerType {
-		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, NOTIFY_GAME_START_AND_DEAL,
+		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, NOTIFY_GAME_START_AND_DEAL, SELECT_PLAYER_WAIT,
 		;
 	}
 
 	
+	public static class SetSelectPlayerWaitTimer implements Action {
+
+		private static final int SELECT_PLAYER_WAIT_TIMEOUT = 3;
+
+		@Override
+		public void execute(Object context) {
+			ZjhGameSession session = (ZjhGameSession)context;
+			int timeOut = SELECT_PLAYER_WAIT_TIMEOUT;
+			GameEventExecutor.getInstance().startTimer(session, 
+					timeOut, ZjhTimerType.SELECT_PLAYER_WAIT);
+		}
+	}
+
+
 	public static class NotifyGameStartAndDealTimer implements Action {
 
 		double PER_USER_TIME_SHARE = 0.33;
