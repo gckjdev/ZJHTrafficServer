@@ -169,6 +169,11 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		// TODO: a fake appId, you'd better not call this method.
 		return DBConstants.APPID_ZHAJINHUA;
 	}
+	
+	@Override
+	public String getGameId() {
+		return DBConstants.ZHAJINHUA_GAME_ID;
+	}		
 
 	@Override
 	public boolean updateLevelAndExp() {
