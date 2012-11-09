@@ -49,12 +49,13 @@ public class ZjhGameAction{
 
 	public static class NotifyGameStartAndDealTimer implements Action {
 
-		double PER_USER_TIME_SHARE = 0.33;
-
+		private final static double PER_USER_TIME_SHARE = 0.33;
+		private final static int EXTRA_TIME = 2;
+		
 		private long calculateTimeout(int playerCount) {
 			
 			double tmp = playerCount * PER_USER_TIME_SHARE;
-			return Math.round(tmp) + 1 ;
+			return Math.round(tmp) + EXTRA_TIME ;
 		}
 		@Override
 		public void execute(Object context) {
@@ -124,30 +125,6 @@ public class ZjhGameAction{
 				return message;
 			}
 			
-//			private void broadcastBetNofication(GameSession session,int singleBet, int count, boolean isAutoBet) {
-//
-//				List<GameUser> list = session.getUserList().getAllUsers();
-//				for (GameUser user : list){		
-//					BetRequest request = BetRequest.newBuilder()
-//							.setSingleBet(singleBet)
-//							.setCount(count)
-//							.setIsAutoBet(isAutoBet)
-//							.build();
-//				
-//					GameMessage message = GameMessage.newBuilder()
-//						.setCommand(GameCommandType.BET_REQUEST)
-//						.setMessageId(GameEventExecutor.getInstance().generateMessageId())
-//						.setBetRequest(request)
-//						.setUserId(user.getUserId())
-//						.build();
-//
-//					ServerLog.info(session.getSessionId(), "betNotification for "
-//							+ user.getUserId() +" is :"+ message.toString());
-//					// send notification for the user			
-//					HandlerUtils.sendMessage(message, user.getChannel());
-//				}	
-				
-//			}
 		
 		@Override
 		public void execute(Object context) {
@@ -162,7 +139,6 @@ public class ZjhGameAction{
 			GameMessage startMessage = makeGameStartNotification(totalBet, singleBet, userPlayInfo);
 			NotificationUtils.broadcastNotification(session, startMessage);
 			
-//			broadcastBetNofication(session, singleBet, 1, false);
 		}
 
 	}
