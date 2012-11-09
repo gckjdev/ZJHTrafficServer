@@ -17,54 +17,6 @@ public class ZjhGameSessionManager extends GameSessionManager {
 	}
 
 	@Override
-	public void userQuitSession(GameSession session, String userId, boolean needFireEvent, boolean needRemoveUserChannel) {
-		int sessionId = session.getSessionId();
-		ServerLog.info(sessionId, "user "+userId+" quit");
-
-//		int sessionUserCount = session.getUserCount();
-		
-		GameUser user = session.findUser(userId);
-		if (user == null){
-			ServerLog.info(sessionId, "user "+userId+" quit, but user not found in session");
-			return;
-		}
-				
-		boolean removeUser = true;
-		
-		if (!removeUser){
-			session.takeOverUser(userId);
-		}
-		
-		// broadcast user exit message to all other users
-		NotificationUtils.broadcastUserStatusChangeNotification(session, userId);
-		
-		// 断开后，更新ZjhGameSession中关于该玩家的一些信息
-		((ZjhGameSession)session).updateQuitPlayerInfo(userId);
-		
-		int aliveUserCount = ((ZjhGameSession)session).getAlivePlayerCount();
-		GameCommandType command = null;		
-		if (session.isCurrentPlayUser(userId)){
-			command = GameCommandType.LOCAL_PLAY_USER_QUIT;			
-		}
-		else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
-			command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
-		}
-		else {
-			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
-		}			
-		
-		
-		// fire message
-		if (needFireEvent){
-			GameEventExecutor.getInstance().fireAndDispatchEvent(command, sessionId, userId);
-		}
-		
-		if (removeUser){
-			SessionUserService.getInstance().removeUser(session, userId, needRemoveUserChannel);
-		}
-	}
-
-	@Override
 	public String getGameId() {
 		return ZjhGameConstant.GAME_ID_ZJH;
 	}
@@ -92,6 +44,32 @@ public class ZjhGameSessionManager extends GameSessionManager {
 			return 0;
 	}
 
+	@Override
+	public boolean takeOverWhenUserQuit(GameSession session, GameUser quitUser,
+			int sessionUserCount) {
+		return false;
+	}
 
-	
+	@Override
+	public void updateQuitUserInfo(GameSession session, GameUser quitUser) {
+		// 断开后，更新ZjhGameSession中关于该玩家的一些信息
+		((ZjhGameSession)session).updateQuitPlayerInfo(quitUser.getUserId());	
+	}
+
+	@Override
+	public GameCommandType  getCommandForUserQuitSession(GameSession session, GameUser quitUser, int sessionUserCount){
+		int aliveUserCount = ((ZjhGameSession)session).getAlivePlayerCount();
+		GameCommandType command = null;		
+		if (session.isCurrentPlayUser(quitUser.getUserId())){
+			command = GameCommandType.LOCAL_PLAY_USER_QUIT;			
+		}
+		else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
+			command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
+		}
+		else {
+			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
+		}	
+		
+		return command;
+	}
 }

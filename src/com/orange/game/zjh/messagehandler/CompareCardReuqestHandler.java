@@ -14,7 +14,6 @@ import com.orange.network.game.protocol.message.GameMessageProtos;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
-import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils.Collections;
 
 public class CompareCardReuqestHandler extends AbstractMessageHandler {
 
