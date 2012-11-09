@@ -32,7 +32,7 @@ public class BetRequestHandler extends AbstractMessageHandler {
 		String userId = message.getUserId();
 		BetRequest request = message.getBetRequest();
 		
-		ServerLog.info(session.getSessionId(), "<betRequest>request is " + request.toString());
+//		ServerLog.info(session.getSessionId(), "<betRequest>request is " + request.toString());
 		if (session == null){
 			logger.info("<BetRequestHandler> Session is null !!!");
 			resultCode = GameResultCode.ERROR_NO_SESSION_AVAILABLE;
@@ -40,6 +40,10 @@ public class BetRequestHandler extends AbstractMessageHandler {
 		else if (userId == null){
 			logger.info("<BetRequestHandler> UserId is null !!!");
 			resultCode = GameResultCode.ERROR_USERID_NULL;
+		}
+		else if ( ! session.getCurrentPlayUserId().equals(userId)) {
+			logger.info("<BetRequestHandler> Not current player !!!");
+			resultCode = GameResultCode.ERROR_USER_NOT_CURRENT_PLAY_USER;
 		}
 		else {
 			ServerLog.info(session.getSessionId(), "Get bet request from :" + message.getUserId() );

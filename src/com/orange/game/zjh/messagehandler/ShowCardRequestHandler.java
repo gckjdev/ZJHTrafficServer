@@ -39,6 +39,10 @@ public class ShowCardRequestHandler extends AbstractMessageHandler {
 			logger.info("<ShowCardRequestHandler> UserId is null !!!");
 			resultCode = GameResultCode.ERROR_USERID_NULL;
 		}
+		else if ( ! session.getCurrentPlayUserId().equals(userId)) {
+			logger.info("<ShowCardRequestHandler> Not current player !!!");
+			resultCode = GameResultCode.ERROR_USER_NOT_CURRENT_PLAY_USER;
+		}
 		else {
 			List<Integer> cardIds = request.getCardIdsList();
 			// do the real job.
