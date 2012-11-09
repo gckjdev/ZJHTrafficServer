@@ -55,7 +55,6 @@ public class ZjhGameSession extends GameSession {
 	private Map<String, Integer> faceStatusMap = new ConcurrentHashMap<String, Integer>();
 	// 每个玩家的总注
 	private Map<String, Integer> totalBetMap =  new ConcurrentHashMap<String, Integer>();
-		
 	// 每玩家游戏状态信息
 	// bit 0 : is auto bet?  [0: false, 1: true]
 	// bit 1 : has checked card? [0: false, 1: true]
@@ -81,6 +80,7 @@ public class ZjhGameSession extends GameSession {
 		super(sessionId, name, password, createByUser, createBy, ruleType, testEnable);
 		// init state
 		this.currentState = ZjhGameStateMachineBuilder.INIT_STATE;
+		// 
 		for (int i = 0; i < ZjhGameConstant.ALL_CARD_NUM; i++) {
 			pokerPool[i] = i;
 		}
@@ -95,7 +95,7 @@ public class ZjhGameSession extends GameSession {
 	
 	@Override	
 	public void restartGame(){	
-		totalBet = 0;
+		singleBet = getSingleBet();
 		pokerPoolCursor = 0;
 		userPokersMap.clear();
 		cardTypeMap.clear();
@@ -129,7 +129,7 @@ public class ZjhGameSession extends GameSession {
 	public List<PBZJHUserPlayInfo> deal() {
 		
 		List<PBZJHUserPlayInfo> result = new ArrayList<PBZJHUserPlayInfo>();
-		List<GameUser> gameUsers = getUserList().getAllUsers();
+		List<GameUser> gameUsers = getUserList().getPlayingUserList();
 		
  		// 先洗牌 !
 		shufflePokers();
@@ -336,6 +336,9 @@ public class ZjhGameSession extends GameSession {
 			int tmp = totalBetMap.get(userId);
 			totalBetMap.put(userId, tmp + givenSingleBet * count);
 				
+			// Update session's total 
+			totalBet += givenSingleBet * count;
+			
 			int oldValue = userPlayInfoMask.get(userId);
 			// Clear the last action first.
 			oldValue &= ~LAST_ACTION_MASK;
@@ -560,11 +563,11 @@ public class ZjhGameSession extends GameSession {
 		ServerLog.info(sessionId, "<getUserPlayInfo> someone joins in during game!");
 		
 		List<PBZJHUserPlayInfo> result =  new ArrayList<PBZJHUserPlayInfo>();
-		List<GameUser> gameUsers = getUserList().getAllUsers();
+		List<GameUser> gameUsers = getUserList().getPlayingUserList();
 		
 		for(GameUser user : gameUsers) {
 			result.add( updateUserPlayInfo(user.getUserId()) );
-//			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo of "+ user.getNickName()+" !");
+			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo of "+ user.getNickName()+" !");
 		}
 		
 		return result;
