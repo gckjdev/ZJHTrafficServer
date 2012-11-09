@@ -83,11 +83,4 @@ public class ZjhGameServerHandler extends GameServerHandler {
 		
 		return null;
 	}
-
-	@Override
-	public void userQuitSession(String userId,
-			GameSession session, boolean needFireEvent) {		
-		GameEventExecutor.getInstance().getSessionManager().userQuitSession(session, userId, needFireEvent, true);								
-	}
-	
 }
