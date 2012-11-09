@@ -21,7 +21,8 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		int sessionId = session.getSessionId();
 		ServerLog.info(sessionId, "user "+userId+" quit");
 
-		int sessionUserCount = session.getUserCount();
+//		int sessionUserCount = session.getUserCount();
+		
 		GameUser user = session.findUser(userId);
 		if (user == null){
 			ServerLog.info(sessionId, "user "+userId+" quit, but user not found in session");
@@ -34,22 +35,24 @@ public class ZjhGameSessionManager extends GameSessionManager {
 			session.takeOverUser(userId);
 		}
 		
+		// broadcast user exit message to all other users
+		NotificationUtils.broadcastUserStatusChangeNotification(session, userId);
+		
+		// 断开后，更新ZjhGameSession中关于该玩家的一些信息
+		((ZjhGameSession)session).updateQuitPlayerInfo(userId);
+		
+		int aliveUserCount = ((ZjhGameSession)session).getAlivePlayerCount();
 		GameCommandType command = null;		
 		if (session.isCurrentPlayUser(userId)){
 			command = GameCommandType.LOCAL_PLAY_USER_QUIT;			
 		}
-		else if (sessionUserCount <= 2){
+		else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
 			command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
 		}
 		else {
 			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
 		}			
 		
-		// 在断开连接前，要先更新该玩家的一些信息，以免断开连接后找不到userId
-		((ZjhGameSession)session).updateQuitPlayerInfo(userId);
-		
-		// broadcast user exit message to all other users
-		NotificationUtils.broadcastUserStatusChangeNotification(session, userId);			
 		
 		// fire message
 		if (needFireEvent){
