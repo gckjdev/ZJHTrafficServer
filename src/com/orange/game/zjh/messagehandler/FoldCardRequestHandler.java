@@ -26,7 +26,7 @@ public class FoldCardRequestHandler extends AbstractMessageHandler {
 	public void handleRequest(GameMessage message, Channel channel,
 			GameSession session) {
 
-		ServerLog.info(session.getSessionId(), "Get foldCard Request = " + message.toString());
+//		ServerLog.info(session.getSessionId(), "Get foldCard Request = " + message.toString());
 		GameResultCode resultCode;
 		String userId = message.getUserId();
 		FoldCardRequest request = message.getFoldCardRequest();

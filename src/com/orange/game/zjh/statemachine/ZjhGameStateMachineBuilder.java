@@ -6,18 +6,18 @@ import com.orange.common.statemachine.Condition;
 import com.orange.common.statemachine.DecisionPoint;
 import com.orange.common.statemachine.State;
 import com.orange.common.statemachine.StateMachine;
-import com.orange.common.statemachine.StateMachineBuilder;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.statemachine.CommonGameAction;
 import com.orange.game.traffic.statemachine.CommonGameCondition;
 import com.orange.game.traffic.statemachine.CommonGameState;
+import com.orange.game.traffic.statemachine.CommonStateMachineBuilder;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.game.zjh.statemachine.action.ZjhGameAction;
 import com.orange.game.zjh.statemachine.state.GameState;
 import com.orange.game.zjh.statemachine.state.GameStateKey;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 
-public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
+public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 
 	// thread-safe singleton implementation
     private static ZjhGameStateMachineBuilder builder = new ZjhGameStateMachineBuilder();
@@ -40,18 +40,8 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		
 		StateMachine stateMachine = new StateMachine();
 		
-		
-		Action initGame        		    = new CommonGameAction.InitGame();
-		Action clearTimer		 			 = new CommonGameAction.ClearTimer();
-		Action prepareRobot				 = new CommonGameAction.PrepareRobot();
-		Action clearRobotTimer			 = new CommonGameAction.ClearRobotTimer();
-		Action selectPlayer 			 	 = new CommonGameAction.SelectPlayUser();
-		Action startPlayGame 			 = new CommonGameAction.StartGame();
-		Action finishPlayGame			 = new CommonGameAction.FinishGame();
 		Action setStartGameTimer 		 = new CommonGameAction.CommonTimer(START_GAME_TIMEOUT, ZjhGameAction.ZjhTimerType.START_GAME);
 		Action setWaitClaimTimer		 = new CommonGameAction.CommonTimer(WAIT_CLAIM_TIMEOUT, ZjhGameAction.ZjhTimerType.WAIT_CLAIM);
-		Action kickPlayUser     		 = new CommonGameAction.KickPlayUser(); 
-		Action setOneUserWaitTimer		 = new CommonGameAction.SetOneUserWaitTimer();
 		Action notifyGameStartAndDealTimer 
 												 = new ZjhGameAction.NotifyGameStartAndDealTimer();
 		Action notifyGameStartAndDeal  = new ZjhGameAction.NotifyGameStartAndDeal(); 
@@ -68,6 +58,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 												 = new ZjhGameAction.SetAllPlayerLoseGameToFalse();
 		Action updateQuitPlayerInfo	 = new ZjhGameAction.UpdateQuitPlayerInfo();
 		Action setSelectPlayerWaitTimer= new ZjhGameAction.SetSelectPlayerWaitTimer();
+		Action setCompleteGameWaitTimer= new ZjhGameAction.setCompleteGameTimer();
 		
 		Condition checkUserCount = new CommonGameCondition.CheckUserCount();
 		 
@@ -114,7 +105,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		
 		
 		stateMachine.addState(new GameState(GameStateKey.DEAL))
-						.addAction(startPlayGame)
+						.addAction(startGame)
 						.addAction(setAlivePlayerCout)
 						.addAction(setTotalBet)
 						.addAction(setAllPlayerLoseGameToFalse)
@@ -126,11 +117,10 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.SELECT_NEXT_PLAYER)
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)  // 旁观者加入
 						.addAction(clearTimer);
-						
 		
 		stateMachine.addState(new GameState(GameStateKey.SELECT_PLAYER_WAIT_TIMER))
 						.addAction(setSelectPlayerWaitTimer)
-						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME) //有玩家退出后，只剩1个，所以结束游戏
+						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME) //有玩家退出后，存活人数为1，结束游戏
 						.addTransition(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌并且存活人数为1,导致游戏结束
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.SELECT_NEXT_PLAYER) //时间到，选择下一玩家 
 						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT) // 此时当前玩家已完成其轮次，下一用户还未选择，保持当前状态，延后处理
@@ -141,7 +131,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		
 		stateMachine.addState(new GameState(GameStateKey.SELECT_NEXT_PLAYER))
 						.addAction(clearTimer) // 如果是从BET, FOLD_CARD, TIMEOUT_FOLD_CARD, COMPARE_CARD跳转来，先清空其定时器
-						.addAction(selectPlayer)
+						.addAction(selectPlayUser)
 						.setDecisionPoint(new DecisionPoint(null) {
 							@Override
 							public Object decideNextState(Object context){
@@ -227,7 +217,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount();
 								if ( alivePlayerCount == 1 ) // 弃牌后只剩一个存活玩家
-									return GameStateKey.COMPLETE_GAME;
+									return GameStateKey.COMPLETE_GAME_WAIT_TIMER;
 								else 
 									return GameStateKey.SELECT_PLAYER_WAIT_TIMER;
 							}
@@ -242,7 +232,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 							public Object decideNextState(Object context){					
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount <= 1 )
+								if ( alivePlayerCount == 1 )
 									return GameStateKey.COMPLETE_GAME;	
 								else
 									return GameStateKey.SELECT_NEXT_PLAYER;
@@ -250,6 +240,14 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 						});
 					
 		
+		stateMachine.addState(new GameState(GameStateKey.COMPLETE_GAME_WAIT_TIMER))
+						.addAction(setCompleteGameWaitTimer)
+						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.COMPLETE_GAME) //时间到，结束处理程序 
+						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT) //已经是结束等待时间，延后处理
+						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT) //已经是结束等待时间，延后处理
+						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT) //已经是结束等待时间，延后处理
+						.addEmptyTransition(GameCommandType.LOCAL_FOLD_CARD) //已经是结束等待时间，延后处理
+						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN);
 		
 		stateMachine.addState(new GameState(GameStateKey.COMPLETE_GAME))
 						.addAction(completeGame)
@@ -263,7 +261,7 @@ public class ZjhGameStateMachineBuilder extends StateMachineBuilder {
 		
 		stateMachine.addState(new GameState(GameStateKey.SHOW_RESULT))
 						.addAction(setShowResultTimer)
-						.addAction(finishPlayGame)
+						.addAction(finishGame)
 						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)

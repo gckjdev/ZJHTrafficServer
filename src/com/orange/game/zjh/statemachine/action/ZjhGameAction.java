@@ -6,15 +6,11 @@ import java.util.List;
 import com.orange.common.log.ServerLog;
 import com.orange.common.statemachine.Action;
 import com.orange.game.traffic.model.dao.GameSession;
-import com.orange.game.traffic.model.dao.GameUser;
-import com.orange.game.traffic.robot.client.RobotService;
 import com.orange.game.traffic.server.GameEventExecutor;
-import com.orange.game.traffic.server.HandlerUtils;
 import com.orange.game.traffic.server.NotificationUtils;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.message.GameMessageProtos;
-import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameOverNotificationRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameStartNotificationRequest;
@@ -26,11 +22,25 @@ import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 public class ZjhGameAction{
 
-
 	public enum  ZjhTimerType {
-		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, NOTIFY_GAME_START_AND_DEAL, SELECT_PLAYER_WAIT,
+		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, 
+		NOTIFY_GAME_START_AND_DEAL, SELECT_PLAYER_WAIT, COMPLTE_WAIT,
 		;
 	}
+	
+	public static class setCompleteGameTimer implements Action {
+		
+		private static final int COMPLETE_WAIT_TIMEOUT = 3;
+
+		@Override
+		public void execute(Object context) {
+			ZjhGameSession session = (ZjhGameSession)context;
+			int timeOut = COMPLETE_WAIT_TIMEOUT;
+			GameEventExecutor.getInstance().startTimer(session, 
+					timeOut, ZjhTimerType.COMPLTE_WAIT);
+		}
+	}
+
 
 	
 	public static class SetSelectPlayerWaitTimer implements Action {
