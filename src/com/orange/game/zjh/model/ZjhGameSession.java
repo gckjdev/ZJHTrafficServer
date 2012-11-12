@@ -409,6 +409,7 @@ public class ZjhGameSession extends GameSession {
 				
 				// 递减存活玩家个数
 				alivePlayerCount.decrementAndGet(); // he/she is game over
+				GameUserManager.getInstance().findUserById(userId).setLoseGame(true); //设玩家游戏状态为loseGame为true
 				
 				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
 				GameUser user = GameUserManager.getInstance().findUserById(userId);
@@ -696,8 +697,9 @@ public class ZjhGameSession extends GameSession {
 		
 		for (Map.Entry<String, Integer> entry: userPlayInfoMask.entrySet()) {
 				int userPlayInfo = entry.getValue();
-				// 只有当真正开始玩（即开始选择玩家时）并且游戏状态为输的才能跳过。
-				// 在发牌到玩家开始玩这段特殊“窗口期“， 最后留在房间中的也算是胜者。
+				// 当真正开始玩（即开始选择玩家时）并且玩家未弃牌并且比牌未输，算是胜者;
+				// 当在发牌到玩家开始玩这段特殊“窗口期“(PLAYING而不是ACTUAL_PLAYING)
+				// ， 最后留在房间中的算是胜者。
 				if (  status.equals(SessionStatus.ACTUAL_PLAYING) 
 						&& ( userPlayInfo & USER_INFO_COMPARE_LOSE) == USER_INFO_COMPARE_LOSE 
 						|| ( userPlayInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) 
@@ -722,11 +724,19 @@ public class ZjhGameSession extends GameSession {
 	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame
 	public void updateQuitPlayerInfo(String userId) {
 		
+		// 如果是游戏玩家并且游戏状态为未输，需要把alivePlayerCount递减；旁观玩家则不需要
+		// 如果已经是输了游戏的也不需要递减（因为之前已经递减了）
+		GameUser gameUser = GameUserManager.getInstance().findUserById(userId);
+		if ( gameUser != null && gameUser.isPlaying() && ! gameUser.hasLosedGame() ) {
+				alivePlayerCount.decrementAndGet();
+		}
+		
 		// 因为是在游戏开始发牌阶段才把userId加入userPlayInfoMask,
 		// 如果是在开始到发牌之间退出，则不用进行操作。
 		if ( userPlayInfoMask.containsKey(userId)) {
 			int playInfoMask = userPlayInfoMask.get(userId);
-			userPlayInfoMask.put(userId, playInfoMask | USER_INFO_COMPARE_LOSE ); // 中途退出当做是输了游戏
+			// 中途退出当做是输了游戏, 权且把其高为COMPARE_LOSE
+			userPlayInfoMask.put(userId, playInfoMask | USER_INFO_COMPARE_LOSE ); 
 			ServerLog.info(sessionId, "<ZjhGameSession.updateQuitPlayerInfo>" +
 					"quits the game, so set he/she to loseGame status");
 			
@@ -738,10 +748,7 @@ public class ZjhGameSession extends GameSession {
 				gameResultService.writeUserGameResultIndoDb(sessionId, result, ZjhGameConstant.GAME_ID_ZJH);
 			}
 		}
-		// 如果是游戏玩家，需要把alivePlayerCount递减；旁观玩家则不需要
-		if ( GameUserManager.getInstance().findUserById(userId).isPlaying()) {
-			alivePlayerCount.decrementAndGet();
-		}
+		
 	}
 	
 	public List<String> getComprableUserIdList(String myselfId) {
