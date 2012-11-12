@@ -5,7 +5,10 @@ import org.jboss.netty.channel.MessageEvent;
 
 import com.orange.game.traffic.messagehandler.AbstractMessageHandler;
 import com.orange.game.traffic.model.dao.GameSession;
+import com.orange.game.traffic.model.dao.GameUser;
+import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.server.GameEventExecutor;
+import com.orange.game.traffic.server.HandlerUtils;
 import com.orange.game.traffic.server.NotificationUtils;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
@@ -28,6 +31,7 @@ public class CompareCardReuqestHandler extends AbstractMessageHandler {
 		GameResultCode resultCode;
 		String userId = message.getUserId();
 		CompareCardRequest request = message.getCompareCardRequest();
+		String toUserId = null;
 		
 		if (session == null){
 			logger.info("<CompareCardRequestHandler> Session is null !!!");
@@ -43,7 +47,7 @@ public class CompareCardReuqestHandler extends AbstractMessageHandler {
 		}
 		else {
 			// do the real job.
-			String toUserId = request.getToUserId();
+			toUserId = request.getToUserId();
 			resultCode = ((ZjhGameSession)session).compareCard(userId, toUserId); 
 		}
 		
@@ -69,18 +73,11 @@ public class CompareCardReuqestHandler extends AbstractMessageHandler {
 		// Send it.
 		sendResponse(responseMessage);
 
-		
+		// Broadcast to all other players.
 		if (resultCode == GameResultCode.SUCCESS){
-			// Broadcast to all other players.		
-			boolean sendToSelf = false;
-			GameMessage.Builder brocastBuilder = GameMessageProtos.GameMessage.newBuilder()
-					.setCommand(GameCommandType.COMPARE_CARD_REQUEST)
-					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
-					.setSessionId(session.getSessionId())
-					.setUserId(userId)
-					.setCompareCardRequest(request); // insert the request to broadcast to all other players.
-			
-			NotificationUtils.broadcastNotification(session, brocastBuilder, sendToSelf);
+		
+			// Broadcast response to  all other players.
+			NotificationUtils.broadcastNotification(session,userId, responseMessage);
 			
 			// Fire event
 			GameEventExecutor.getInstance().fireAndDispatchEvent(GameCommandType.LOCAL_COMPARE_CARD, session.getSessionId(), userId);
