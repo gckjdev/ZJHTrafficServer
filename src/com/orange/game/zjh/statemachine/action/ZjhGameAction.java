@@ -5,9 +5,11 @@ import java.util.List;
 
 import com.orange.common.log.ServerLog;
 import com.orange.common.statemachine.Action;
+import com.orange.game.constants.DBConstants;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.game.traffic.server.NotificationUtils;
+import com.orange.game.traffic.service.UserGameResultService;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.message.GameMessageProtos;
@@ -180,16 +182,31 @@ public class ZjhGameAction{
 
 	public static class CompleteGame implements Action {
 		
+		private UserGameResultService service = UserGameResultService.getInstance();
+		
 		@Override
 		public void execute(Object context) {
 			
 			ZjhGameSession session = (ZjhGameSession)context;
 			
-			session.judgeWhowins();
-			
-			Collection<PBUserResult> userResult = session.getUserResults() ;
+			Collection<PBUserResult> userResult = session.judgeWhoWins() ;
 					
+			// If userResult's size is not 1, which means it only contains the winner's result.
+			// Since all other user has been sync to db before.
+			if ( userResult.size() != 1 ) {
+				String exceptionString = "<CompleteGame> PBUserResult contains not only one element: "+userResult.toString();
+				ServerLog.error(session.getSessionId(), new Exception(exceptionString));
+			}
 			ServerLog.info(session.getSessionId(), "<completeGame> userResult is " +userResult.toString());
+			
+			// write game result(playtimes, wintime, losetimes, etc) into db
+			for ( PBUserResult result : userResult ) {
+				service.writeUserGameResultIndoDb(session.getSessionId(), result, DBConstants.GAME_ID_ZJH);
+			}
+			
+			// charge/deduct coins
+			service.writeAllUserCoinsIntoDB(session,DBConstants.C_CHARGE_SOURCE_ZJH_WIN);
+			
 			
 			// broadcast complete complete with result
 			PBZJHGameResult result = PBZJHGameResult.newBuilder()
