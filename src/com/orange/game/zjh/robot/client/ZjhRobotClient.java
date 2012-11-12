@@ -1,6 +1,9 @@
 package com.orange.game.zjh.robot.client;
 
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -16,8 +19,11 @@ import com.orange.game.constants.ServiceConstant;
 import com.orange.game.model.dao.User;
 import com.orange.game.model.manager.UserManager;
 import com.orange.game.traffic.robot.client.AbstractRobotClient;
+import com.orange.game.traffic.server.GameEventExecutor;
+import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.model.GameBasicProtos.PBGameUser;
@@ -29,9 +35,10 @@ public class ZjhRobotClient extends AbstractRobotClient {
 //	private final static Logger logger = Logger.getLogger(ZjhRobotClient.class.getName());
 	
 	private final ScheduledExecutorService scheduleService = Executors.newScheduledThreadPool(5);
-	private ScheduledFuture<?> FoldCardTimerFuture = null;
+	private ScheduledFuture<?> foldCardTimerFuture = null;
+	private ScheduledFuture<?> compareCardTimerFuture = null;
 	private Object shareTimerType = null;
-	private Object foldCardTimerFuture = null;
+	private Object foldCardTimerType = null;
 	
 	private int betTimes = 0;
 	private int singleBet = 5;
@@ -54,11 +61,18 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				break;
 			case NEXT_PLAYER_START_NOTIFICATION_REQUEST:
 				if (message.getCurrentPlayUserId().equals(userId)){
-					if ( betTimes <= 5) {
+					if (  betTimes <= 5) {
 						scheduleSend(singleBet, count, false);
 						betTimes++;
 					} else {
-						scheduleFoldCard();
+						List<String>  compareUserIds = getCompareUserId(userId);
+						ServerLog.info(sessionId, "*********compareUserIds = " + compareUserIds.toString());
+						if ( compareUserIds != null ) {
+							scheduleCompareCard(compareUserIds.get(0));
+						}
+						else {
+							scheduleFoldCard();
+						}
 					}
 				}
 				break;
@@ -83,13 +97,62 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	}
 
 	
-	private void scheduleSend(final int singleBet, final int count, final boolean isAutoBet) {
+	
+	private List<String> getCompareUserId(String myselfId) {
 		
-		if ( FoldCardTimerFuture != null  ){
-			FoldCardTimerFuture.cancel(false);
+		List<String> resultList = new ArrayList<String>();
+		
+ 		ZjhGameSession session = (ZjhGameSession) GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId);
+		resultList = session.getComprableUserIdList(myselfId);
+		
+		return resultList;
+		
+	}
+
+
+	private void scheduleCompareCard(final String toUserId) {
+		
+		if ( compareCardTimerFuture != null  ){
+			compareCardTimerFuture.cancel(false);
 		}
 		
-		FoldCardTimerFuture = scheduleService.schedule(new Runnable() {			
+		compareCardTimerFuture = scheduleService.schedule(new Runnable() {			
+			@Override
+			public void run() {
+				sendCompare(toUserId);
+			}
+
+		}, 
+		RandomUtils.nextInt(2)+1, TimeUnit.SECONDS);
+		
+	}
+
+	protected void sendCompare(String toUserId) {
+		
+		ServerLog.info(sessionId, "Robot "+nickName+" tries to compare card with "+ toUserId);
+		
+		CompareCardRequest request = CompareCardRequest.newBuilder()
+				.setToUserId(toUserId)
+				.build();
+		
+		GameMessage message = GameMessage.newBuilder()
+				.setCompareCardRequest(request)
+				.setMessageId(getClientIndex())
+				.setCommand(GameCommandType.COMPARE_CARD_REQUEST)
+				.setUserId(userId)
+				.setSessionId(sessionId)
+				.build();
+		
+		send(message);
+	}
+
+	private void scheduleSend(final int singleBet, final int count, final boolean isAutoBet) {
+		
+		if ( foldCardTimerFuture != null  ){
+			foldCardTimerFuture.cancel(false);
+		}
+		
+		foldCardTimerFuture = scheduleService.schedule(new Runnable() {			
 			@Override
 			public void run() {
 				sendBet(singleBet, count, isAutoBet);
@@ -100,11 +163,11 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	
 	private void scheduleFoldCard(){
 		
-		if ( FoldCardTimerFuture != null  ){
-			FoldCardTimerFuture.cancel(false);
+		if ( foldCardTimerFuture != null  ){
+			foldCardTimerFuture.cancel(false);
 		}
 		
-		FoldCardTimerFuture = scheduleService.schedule(new Runnable() {			
+		foldCardTimerFuture = scheduleService.schedule(new Runnable() {			
 			@Override
 			public void run() {
 				sendFoldCard();
