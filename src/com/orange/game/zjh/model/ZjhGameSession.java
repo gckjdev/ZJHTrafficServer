@@ -738,8 +738,10 @@ public class ZjhGameSession extends GameSession {
 				gameResultService.writeUserGameResultIndoDb(sessionId, result, ZjhGameConstant.GAME_ID_ZJH);
 			}
 		}
-		// 同时需要把alivePlayerCount递减
-		alivePlayerCount.decrementAndGet();
+		// 如果是游戏玩家，需要把alivePlayerCount递减；旁观玩家则不需要
+		if ( GameUserManager.getInstance().findUserById(userId).isPlaying()) {
+			alivePlayerCount.decrementAndGet();
+		}
 	}
 	
 	public List<String> getComprableUserIdList(String myselfId) {
