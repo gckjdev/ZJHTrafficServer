@@ -1,12 +1,8 @@
 package com.orange.game.zjh.model;
 
-import com.orange.common.log.ServerLog;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.model.manager.GameSessionManager;
-import com.orange.game.traffic.server.GameEventExecutor;
-import com.orange.game.traffic.server.NotificationUtils;
-import com.orange.game.traffic.service.SessionUserService;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 
 public class ZjhGameSessionManager extends GameSessionManager {

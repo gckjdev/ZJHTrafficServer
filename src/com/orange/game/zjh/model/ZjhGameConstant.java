@@ -42,7 +42,7 @@ public class ZjhGameConstant {
 	public static final int USER_INFO_CHECKED_CARD        = 0x2;    // 00 0000 0000 0010
 	public static final int USER_INFO_FOLDED_CARD         = 0x4;    // 00 0000 0000 0100
 	public static final int USER_INFO_SHOWED_CARD         = 0x8;    // 00 0000 0000 1000
-	public static final int USER_INFO_LOSED_GAME          = 0x10;   // 00 0000 0001 0000
+	public static final int USER_INFO_COMPARE_LOSE          = 0x10;   // 00 0000 0001 0000
 	public static final int USER_INFO_ACTION_NONE         = 0x20;   // 00 0000 0010 0000
 	public static final int USER_INFO_ACTION_BET          = 0x40;   // 00 0000 0100 0000
 	public static final int USER_INFO_ACTION_RAISE_BET    = 0x80;   // 00 0000 1000 0000
