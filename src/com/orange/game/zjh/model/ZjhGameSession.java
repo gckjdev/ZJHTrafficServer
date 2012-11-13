@@ -697,7 +697,7 @@ public class ZjhGameSession extends GameSession {
 		
 		for (Map.Entry<String, Integer> entry: userPlayInfoMask.entrySet()) {
 				int userPlayInfo = entry.getValue();
-				// 当真正开始玩（即开始选择玩家时）并且玩家未弃牌并且比牌未输，算是胜者;
+				// 当真正开始玩（ACTUAL_PLAYING, 即进入轮次变更时）并且玩家未弃牌并且比牌未输，算是胜者;
 				// 当在发牌到玩家开始玩这段特殊“窗口期“(PLAYING而不是ACTUAL_PLAYING)
 				// ， 最后留在房间中的算是胜者。
 				if (  status.equals(SessionStatus.ACTUAL_PLAYING) 
@@ -735,7 +735,7 @@ public class ZjhGameSession extends GameSession {
 		// 如果是在开始到发牌之间退出，则不用进行操作。
 		if ( userPlayInfoMask.containsKey(userId)) {
 			int playInfoMask = userPlayInfoMask.get(userId);
-			// 中途退出当做是输了游戏, 权且把其高为COMPARE_LOSE
+			// 中途退出当做是输了游戏, 权且把其设为COMPARE_LOSE
 			userPlayInfoMask.put(userId, playInfoMask | USER_INFO_COMPARE_LOSE ); 
 			ServerLog.info(sessionId, "<ZjhGameSession.updateQuitPlayerInfo>" +
 					"quits the game, so set he/she to loseGame status");
