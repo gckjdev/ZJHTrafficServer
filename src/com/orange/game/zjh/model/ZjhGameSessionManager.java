@@ -62,9 +62,12 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
 			command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
 		}
-		else {
+		else if (quitUser.isPlaying()){ // 旁观者不应该激发事件
 			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
-		}	
+		} 
+		else {
+			command = null;
+		}
 		
 		return command;
 	}

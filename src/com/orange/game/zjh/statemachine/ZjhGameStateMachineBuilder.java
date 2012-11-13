@@ -111,26 +111,26 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addAction(setAllPlayerLoseGameToFalse)
 						.addAction(notifyGameStartAndDealTimer)
 						.addAction(notifyGameStartAndDeal)
-						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT, GameStateKey.PLAY_USER_QUIT) 
+						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT, GameStateKey.PLAY_USER_QUIT) // 此时未选择玩家，没有PLAY_USER_QUIT
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.COMPLETE_GAME)
-						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT, GameStateKey.CHECK_USER_COUNT_DURING_GAME)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.SELECT_NEXT_PLAYER)
+						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT) // 激发此事件说明房间至少剩2个以上玩家，且该退出玩家不是当前轮，所以不动
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)  // 旁观者加入
 						.addAction(clearTimer);
 		
-		stateMachine.addState(new GameState(GameStateKey.CHECK_USER_COUNT_DURING_GAME))
-						.setDecisionPoint(new DecisionPoint(null) {
-							@Override
-							public Object decideNextState(Object context){
-								ZjhGameSession session = (ZjhGameSession)context;
-								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount == 1 )
-									return GameStateKey.COMPLETE_GAME;
-								else {
-										return GameStateKey.SELECT_NEXT_PLAYER;
-								}
-							}
-						});
+//		stateMachine.addState(new GameState(GameStateKey.CHECK_USER_COUNT_DURING_GAME))
+//						.setDecisionPoint(new DecisionPoint(null) {
+//							@Override
+//							public Object decideNextState(Object context){
+//								ZjhGameSession session = (ZjhGameSession)context;
+//								int alivePlayerCount = session.getAlivePlayerCount();
+//								if ( alivePlayerCount == 1 )
+//									return GameStateKey.COMPLETE_GAME;
+//								else {
+//									return GameStateKey.SELECT_NEXT_PLAYER;
+//								}
+//							}
+//						});
 		
 		stateMachine.addState(new GameState(GameStateKey.SELECT_PLAYER_WAIT_TIMER))
 						.addAction(setSelectPlayerWaitTimer)
@@ -179,10 +179,10 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addTransition(GameCommandType.LOCAL_COMPARE_CARD,GameStateKey.PLAYER_COMPARE_CARD) // 比牌
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.PLAY_USER_QUIT)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME)
-						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT_DURING_GAME)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.TIMEOUT_FOLD_CARD) // 超时没作出选择，视为弃牌
 						.addTransition(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌导致游戏可结束
-						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN) 
+						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT) // 激发此事件说明房间至少剩2个以上玩家，且该退出玩家不是当前轮，所以不动
+						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)  // 旁观者加入
 						.addAction(clearTimer);	
 		
 		
