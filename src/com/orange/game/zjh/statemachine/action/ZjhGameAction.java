@@ -167,7 +167,7 @@ public class ZjhGameAction{
 	
 	public static class SetShowResultTimer implements Action {
 
-		private static final int SHOW_RESULT_TIMEOUT = 7;
+		private static final int SHOW_RESULT_TIMEOUT = 5;
 
 		@Override
 		public void execute(Object context) {
