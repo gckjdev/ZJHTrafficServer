@@ -5,16 +5,14 @@ import java.util.List;
 
 import com.orange.common.log.ServerLog;
 import com.orange.common.statemachine.Action;
+import com.orange.game.constants.DBConstants;
 import com.orange.game.traffic.model.dao.GameSession;
-import com.orange.game.traffic.model.dao.GameUser;
-import com.orange.game.traffic.robot.client.RobotService;
 import com.orange.game.traffic.server.GameEventExecutor;
-import com.orange.game.traffic.server.HandlerUtils;
 import com.orange.game.traffic.server.NotificationUtils;
+import com.orange.game.traffic.service.UserGameResultService;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.message.GameMessageProtos;
-import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameOverNotificationRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameStartNotificationRequest;
@@ -26,11 +24,25 @@ import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 public class ZjhGameAction{
 
-
 	public enum  ZjhTimerType {
-		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, NOTIFY_GAME_START_AND_DEAL, SELECT_PLAYER_WAIT,
+		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, 
+		NOTIFY_GAME_START_AND_DEAL, SELECT_PLAYER_WAIT, COMPLTE_WAIT,
 		;
 	}
+	
+	public static class setCompleteGameTimer implements Action {
+		
+		private static final int COMPLETE_WAIT_TIMEOUT = 3;
+
+		@Override
+		public void execute(Object context) {
+			ZjhGameSession session = (ZjhGameSession)context;
+			int timeOut = COMPLETE_WAIT_TIMEOUT;
+			GameEventExecutor.getInstance().startTimer(session, 
+					timeOut, ZjhTimerType.COMPLTE_WAIT);
+		}
+	}
+
 
 	
 	public static class SetSelectPlayerWaitTimer implements Action {
@@ -50,7 +62,7 @@ public class ZjhGameAction{
 	public static class NotifyGameStartAndDealTimer implements Action {
 
 		private final static double PER_USER_TIME_SHARE = 0.33;
-		private final static int EXTRA_TIME = 2;
+		private final static int EXTRA_TIME = 3;
 		
 		private long calculateTimeout(int playerCount) {
 			
@@ -155,7 +167,7 @@ public class ZjhGameAction{
 	
 	public static class SetShowResultTimer implements Action {
 
-		private static final int SHOW_RESULT_TIMEOUT = 7;
+		private static final int SHOW_RESULT_TIMEOUT = 5;
 
 		@Override
 		public void execute(Object context) {
@@ -170,16 +182,31 @@ public class ZjhGameAction{
 
 	public static class CompleteGame implements Action {
 		
+		private UserGameResultService service = UserGameResultService.getInstance();
+		
 		@Override
 		public void execute(Object context) {
 			
 			ZjhGameSession session = (ZjhGameSession)context;
 			
-			session.judgeWhowins();
-			
-			Collection<PBUserResult> userResult = session.getUserResults() ;
+			Collection<PBUserResult> userResult = session.judgeWhoWins() ;
 					
+			// If userResult's size is not 1, which means it only contains the winner's result.
+			// Since all other user has been sync to db before.
+			if ( userResult.size() != 1 ) {
+				String exceptionString = "<CompleteGame> PBUserResult contains not only one element: "+userResult.toString();
+				ServerLog.error(session.getSessionId(), new Exception(exceptionString));
+			}
 			ServerLog.info(session.getSessionId(), "<completeGame> userResult is " +userResult.toString());
+			
+			// write game result(playtimes, wintime, losetimes, etc) into db
+			for ( PBUserResult result : userResult ) {
+				service.writeUserGameResultIndoDb(session.getSessionId(), result, DBConstants.GAME_ID_ZJH);
+			}
+			
+			// charge/deduct coins
+			service.writeAllUserCoinsIntoDB(session,DBConstants.C_CHARGE_SOURCE_ZJH_WIN);
+			
 			
 			// broadcast complete complete with result
 			PBZJHGameResult result = PBZJHGameResult.newBuilder()

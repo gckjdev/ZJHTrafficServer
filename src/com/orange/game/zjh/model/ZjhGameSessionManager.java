@@ -1,12 +1,8 @@
 package com.orange.game.zjh.model;
 
-import com.orange.common.log.ServerLog;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.model.manager.GameSessionManager;
-import com.orange.game.traffic.server.GameEventExecutor;
-import com.orange.game.traffic.server.NotificationUtils;
-import com.orange.game.traffic.service.SessionUserService;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 
 public class ZjhGameSessionManager extends GameSessionManager {
@@ -66,9 +62,12 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
 			command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
 		}
-		else {
+		else if (quitUser.isPlaying()){ // 旁观者不应该激发事件
 			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
-		}	
+		} 
+		else {
+			command = null;
+		}
 		
 		return command;
 	}
