@@ -280,13 +280,13 @@ public class ZjhGameSession extends GameSession {
 			type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
 		}
 		else if ( howManySuits == 1) {
-			if ( hasThreeConsecutiveBit ) {
+			if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
 				type = PBZJHCardType.STRAIGHT_FLUSH; // 顺金， 只有一种花色
 			} else {
 				type = PBZJHCardType.FLUSH; // 金花，即同花，只有一种花色
 			}
 		}
-		else if ( hasThreeConsecutiveBit ) {
+		else if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
 			type = PBZJHCardType.STRAIGHT; // 顺子，不只一种花色
 		}
 		else if ( howManyRanks == 2 ) {
@@ -501,9 +501,9 @@ public class ZjhGameSession extends GameSession {
 				loser = toUserId;
 		}
 		else {
+			// 牌型一样，比牌面值. 顺金，金花，顺子都直接从大比到小，对子则先比对子的大小
 			int userRankMask = rankMaskMap.get(userId);
 			int toUserRankMask = rankMaskMap.get(toUserId);
-			// 牌型一样，比牌面值. 顺金，金花，顺子都直接从大比到小，对子则先比对子的大小
 			if ( userCardType == PAIR_VALUE ) {
 				int userPairRank = pairRankMap.get(userId);
 				int toUserPairRank = pairRankMap.get(toUserId);
@@ -530,6 +530,19 @@ public class ZjhGameSession extends GameSession {
 						loser = userId;
 					}
 				}
+			}
+			// A23顺子牌特殊考虑
+			if ( userRankMask == RANK_MASK_A23 && toUserRankMask != RANK_MASK_A23) {
+				winner = toUserId;
+				loser = userId;
+			}
+			else if ( userRankMask != RANK_MASK_A23 && toUserRankMask == RANK_MASK_A23) {
+				winner = userId;
+				loser = toUserId;
+			}
+			else if ( userRankMask == RANK_MASK_A23 && toUserRankMask == RANK_MASK_A23) {
+				winner = toUserId;
+				loser = userId;
 			}
 			else if ( userRankMask < toUserRankMask ) {
 				winner = userId;

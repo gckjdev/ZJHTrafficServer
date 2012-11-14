@@ -21,7 +21,10 @@ public class ZjhGameConstant {
 	public static final int SUIT_MASK = (1 << (SUIT_TYPE_NUM)) - 1; 
 	// Special rank : 2, 3, 5
 	public static final int TYPE_SPECIAL = 0x1FF4;  // 1 1111 1111 0100
-
+	// Rank : A, 2, 3 , of type STRAIGHT
+	public static final int RANK_MASK_A23 = 0xFFC;   // 0 1111 1111 1100
+	
+	
 	// bit 0 : is auto bet?  [0: false, 1: true]
 	// bit 1 : has checked card? [0: false, 1: true]
 	// bit 2 : has folded card? [0: false, 1: true]
@@ -58,6 +61,8 @@ public class ZjhGameConstant {
 	
 	// How much a player lose if fail in comparing card 
 	public static final int COMPARE_LOSS = 20;
+
+	
 
 	
 	
