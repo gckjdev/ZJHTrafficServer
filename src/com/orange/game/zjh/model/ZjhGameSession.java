@@ -513,8 +513,9 @@ public class ZjhGameSession extends GameSession {
 		// 比牌结束！
 		// 主动挑战比牌的玩家如果输了，要被扣金币。挑战者是ID为userId的玩家。
 		if ( loser.equals(userId) ) {
-				UserManager.deductAccount(getDBInstance(), userId, -ZjhGameConstant.COMPARE_LOSS, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
-				ServerLog.info(sessionId, userId + "compares cards loses, get "+ COMPARE_LOSS + " coins loss-.-");
+			// TODO move to DB executor, avoid execute DB in session thread 
+			UserManager.deductAccount(getDBInstance(), userId, -ZjhGameConstant.COMPARE_LOSS, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
+			ServerLog.info(sessionId, userId + "compares cards loses, get "+ COMPARE_LOSS + " coins loss-.-");
 		}
 				
 		// 刷新winner的状态
