@@ -62,7 +62,7 @@ public class ZjhGameAction{
 	public static class NotifyGameStartAndDealTimer implements Action {
 
 		private final static double PER_USER_TIME_SHARE = 0.33;
-		private final static int EXTRA_TIME = 2;
+		private final static int EXTRA_TIME = 3;
 		
 		private long calculateTimeout(int playerCount) {
 			
