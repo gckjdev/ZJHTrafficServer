@@ -12,5 +12,6 @@ public class ZjhRobotIntelligence {
 		this.sessionid = sessionId;
 	}
 	
+	
 
 }

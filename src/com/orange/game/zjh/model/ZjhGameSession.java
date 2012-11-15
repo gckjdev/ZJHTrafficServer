@@ -14,6 +14,7 @@ import com.orange.common.log.ServerLog;
 import com.orange.common.utils.IntegerUtil;
 import com.orange.game.constants.DBConstants;
 import com.orange.game.traffic.model.dao.GameSession;
+import com.orange.game.traffic.model.dao.GameSessionUserList;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.service.UserGameResultService;
@@ -44,7 +45,6 @@ public class ZjhGameSession extends GameSession {
 	private volatile int singleBet;
 	// 房间当前总注
 	private int totalBet;
-	// 每次主动比牌的玩家ID
 	 
 	// 每个玩家的扑克
 	private Map<String, List<PBPoker>> userPokersMap = new ConcurrentHashMap<String, List<PBPoker>>();
@@ -91,6 +91,21 @@ public class ZjhGameSession extends GameSession {
 		this.singleBet = getSingleBet();
 	}
 	
+	@Override
+	public int initMaxUserPerSession() {
+		// TODO: can set by ruleType
+		int retValue;
+		String sessionMaxPlayerCount = System.getProperty("game.maxsessionuser");
+		
+		if ( sessionMaxPlayerCount != null && ! sessionMaxPlayerCount.isEmpty()) {
+			retValue = Integer.parseInt(sessionMaxPlayerCount);
+		} else {
+			retValue = ZjhGameConstant.SESSION_MAX_PLAYER_COUNT; 
+		}
+
+		ServerLog.info(sessionId, "ZjhGameSession: set maxUserPerSession to " + retValue);
+		return retValue;
+	}
 
 	public void resetGame(){
 		super.resetGame();
@@ -406,9 +421,8 @@ public class ZjhGameSession extends GameSession {
 				oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
 				userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_FOLD_CARD | USER_INFO_FOLDED_CARD);
 				
-				// 递减存活玩家个数
+				// 递减存活玩家个数, 并设玩家游戏状态为loseGame为true
 				alivePlayerCount.decrementAndGet(); // he/she is game over
-				GameUserManager.getInstance().findUserById(userId).setLoseGame(true); //设玩家游戏状态为loseGame为true
 				
 				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
 				GameUser user = GameUserManager.getInstance().findUserById(userId);
@@ -449,8 +463,7 @@ public class ZjhGameSession extends GameSession {
 			
 			// 更新其他状态，包括lastAction等
 			int oldValue = userPlayInfoMask.get(userId);
-			// Clear the last action first.
-			oldValue &= ~LAST_ACTION_MASK;
+			oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
 			userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_SHOW_CARD | USER_INFO_SHOWED_CARD);
 		}
 		return GameResultCode.SUCCESS;

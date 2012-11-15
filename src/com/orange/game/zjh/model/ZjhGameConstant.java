@@ -8,6 +8,8 @@ public class ZjhGameConstant {
 	
 	public static final String GAME_ID_ZJH = DBConstants.GAME_ID_ZJH;
 	
+	public static final int SESSION_MAX_PLAYER_COUNT = 5;
+	
 	public static final int PER_USER_CARD_NUM = 3; // each user has 3 cards;
 	public static final int ALL_CARD_NUM = 52;
 	public static final int PER_SUIT_NUM = 13; // 2-10 ,J, Q ,K
@@ -61,6 +63,8 @@ public class ZjhGameConstant {
 	
 	// How much a player lose if fail in comparing card 
 	public static final int COMPARE_LOSS = 20;
+
+	
 
 	
 
