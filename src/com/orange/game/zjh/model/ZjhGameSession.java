@@ -190,7 +190,6 @@ public class ZjhGameSession extends GameSession {
 	}
 	
 	
-	// 针对一个扑克堆操作，需加synchronized
 	private synchronized List<PBPoker> dispatchPokers() {
 		
 		List<PBPoker> result = new ArrayList<PBPoker>();
@@ -531,7 +530,7 @@ public class ZjhGameSession extends GameSession {
 					}
 				}
 			}
-			// A23顺子牌特殊考虑
+			// A23顺子牌特殊考虑   
 			if ( userRankMask == RANK_MASK_A23 && toUserRankMask != RANK_MASK_A23) {
 				winner = toUserId;
 				loser = userId;
@@ -602,7 +601,7 @@ public class ZjhGameSession extends GameSession {
 		
 		for(GameUser user : gameUsers) {
 			result.add( updateUserPlayInfo(user.getUserId()) );
-			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo of "+ user.getNickName()+" !");
+//			ServerLog.info(sessionId, "<getUserPlayInfo> add userPlayInfo of "+ user.getNickName()+" !");
 		}
 		
 		return result;
@@ -750,8 +749,6 @@ public class ZjhGameSession extends GameSession {
 			int playInfoMask = userPlayInfoMask.get(userId);
 			// 中途退出当做是输了游戏, 权且把其设为COMPARE_LOSE
 			userPlayInfoMask.put(userId, playInfoMask | USER_INFO_COMPARE_LOSE ); 
-			ServerLog.info(sessionId, "<ZjhGameSession.updateQuitPlayerInfo>" +
-					"quits the game, so set he/she to loseGame status");
 			
 			// 已经输了的，或者已经扣牌的，赌注已经被扣了，不须要再多扣一次！
 			if ( (playInfoMask & USER_INFO_COMPARE_LOSE) != USER_INFO_COMPARE_LOSE 

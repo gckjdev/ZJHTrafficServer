@@ -100,6 +100,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addAction(setStartGameTimer)
 						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.PLAY_USER_QUIT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.DEAL)				
+						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)
 						.addAction(clearTimer);
 		
 		
