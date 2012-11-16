@@ -44,6 +44,8 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	private int singleBet = 5;
 	private int count = 1;
 	
+	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId);
+	
 	public ZjhRobotClient(User user, int sessionId, int index) {
 		super(user, sessionId,index);
 		oldExp = experience = user.getExpByAppId(DBConstants.APPID_ZHAJINHUA);
@@ -57,7 +59,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		switch (message.getCommand()){
 		
 			case GAME_START_NOTIFICATION_REQUEST:
-
+				robotIntelligence.introspectPokers(message.getGameStartNotificationRequest());
 				break;
 			case NEXT_PLAYER_START_NOTIFICATION_REQUEST:
 				if (message.getCurrentPlayUserId().equals(userId)){

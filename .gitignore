@@ -6,3 +6,4 @@
 deploy.sh
 /.settings/
 /bin
+run_zhajinhua_traffic_server.sh
