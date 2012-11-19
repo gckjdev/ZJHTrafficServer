@@ -14,7 +14,6 @@ import com.orange.common.log.ServerLog;
 import com.orange.common.utils.IntegerUtil;
 import com.orange.game.constants.DBConstants;
 import com.orange.game.traffic.model.dao.GameSession;
-import com.orange.game.traffic.model.dao.GameSessionUserList;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.service.UserGameResultService;
