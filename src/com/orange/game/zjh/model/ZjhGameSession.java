@@ -44,6 +44,8 @@ public class ZjhGameSession extends GameSession {
 	private volatile int singleBet;
 	// 房间当前总注
 	private int totalBet;
+	// 是否有人拿了豹子牌？ 
+	private boolean someOneGotKing;
 	 
 	// 每个玩家的扑克
 	private Map<String, List<PBPoker>> userPokersMap = new ConcurrentHashMap<String, List<PBPoker>>();
@@ -78,6 +80,7 @@ public class ZjhGameSession extends GameSession {
 	private Map<String, Integer> userPlayInfoMask = new ConcurrentHashMap<String, Integer>();
 
 	private UserGameResultService gameResultService = UserGameResultService.getInstance();
+	private ZjhGameTestData test = ZjhGameTestData.getInstance();
 	
 	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, int ruleType,int testEnable) {
 		super(sessionId, name, password, createByUser, createBy, ruleType, testEnable);
@@ -115,6 +118,7 @@ public class ZjhGameSession extends GameSession {
 	public void restartGame(){	
 		singleBet = getSingleBet();
 		pokerPoolCursor = 0;
+		someOneGotKing = false;
 		userPokersMap.clear();
 		cardTypeMap.clear();
 		rankMaskMap.clear();
@@ -204,26 +208,39 @@ public class ZjhGameSession extends GameSession {
 	}
 	
 	
+	private synchronized List<PBPoker> fraudDispatchPokers(PBZJHCardType cardType) {
+		
+		List<PBPoker> result = test.dispatchPokersForTest(cardType);
+		
+		return result; 
+	}
+	
+	
 	private synchronized List<PBPoker> dispatchPokers() {
 		
 		List<PBPoker> result = new ArrayList<PBPoker>();
 		PBPokerRank rank = null;
 		PBPokerSuit suit = null;
 		PBPoker pbPoker = null;
+		int pokerId;
+		boolean faceUp = false;
 		int  oldCursor = pokerPoolCursor;
+		
+		if ( testEnable == 1 && RandomUtils.nextInt(2) == 0) {
+			return test.dispatchPokersForTest(SPECIAL);
+		}
 		
 		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
 		for (int i = oldCursor; i < oldCursor + ZjhGameConstant.PER_USER_CARD_NUM; i++) {
 			rank = PBPokerRank.valueOf(pokerPool[i] / SUIT_TYPE_NUM + 2);
 			suit = PBPokerSuit.valueOf(pokerPool[i] % SUIT_TYPE_NUM + 1);
-			int pokerId =  toPokerId(rank, suit);
-			boolean faceup = false;
+			pokerId =  toPokerId(rank, suit);
 					
 			pbPoker = PBPoker.newBuilder()
 								.setPokerId(pokerId)
 								.setRank(rank)
 								.setSuit(suit)
-								.setFaceUp(faceup)
+								.setFaceUp(faceUp)
 								.build();
 			result.add(pbPoker);		
 			pokerPoolCursor++; // 扑克堆游标，游标前面的表示已经发出的牌, 每发出一张牌就把游标前移一个元素。
@@ -291,6 +308,7 @@ public class ZjhGameSession extends GameSession {
 		}
 		else if ( howManyRanks == 1 ) {
 			type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
+			someOneGotKing = true; 
 		}
 		else if ( howManySuits == 1) {
 			if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
@@ -494,11 +512,11 @@ public class ZjhGameSession extends GameSession {
 		int userCardType = cardTypeMap.get(userId).ordinal();
 		int toUserCardType = cardTypeMap.get(toUserId).ordinal();
 			
-		// 特殊情况, 玩家牌是2,3 5, 但对手拿的不是豹子牌，那就只能认为是散牌
-		if ( userCardType == SPECIAL_VALUE && toUserCardType != THREE_OF_A_KIND_VALUE) {
+		// 特殊情况, 玩家牌是2,3 5, 但当前局没人拿到豹子牌，那就只能认为是散牌
+		if ( userCardType == SPECIAL_VALUE && !someOneGotKing) {
 				userCardType = HIGH_CARD_VALUE; 
 		}
-		if (toUserCardType == SPECIAL_VALUE && userCardType != THREE_OF_A_KIND_VALUE) {
+		if (toUserCardType == SPECIAL_VALUE && !someOneGotKing) {
 				toUserCardType = HIGH_CARD_VALUE;
 		}
 		
