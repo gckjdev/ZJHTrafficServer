@@ -243,7 +243,7 @@ public class ZjhGameSession extends GameSession {
 		int rankMask = ZjhGameConstant.RANK_MASK;
 		int suitMask = ZjhGameConstant.SUIT_MASK;
 		int faceStatusMask = 0;
-		int oldRankMask = 0;
+		int oldRank = 0;
 		boolean foundPair = false;
 		
 		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
@@ -259,12 +259,12 @@ public class ZjhGameSession extends GameSession {
 			ranks[i] = poker.getRank().ordinal();
 			suits[i] = poker.getSuit().ordinal();
 			
-			if ( !foundPair && oldRankMask  == ranks[i] ) {
+			if ( !foundPair && oldRank  == ranks[i] ) {
 				// 发现对子牌
-				pairRankMap.put(userId, oldRankMask+2);
+				pairRankMap.put(userId, oldRank+2);
 				foundPair = true;
 			} else {
-				oldRankMask = ranks[i];
+				oldRank = ranks[i];
 			}
 			
 			// 根据ordinal值把掩码中对应位置为0
@@ -519,6 +519,7 @@ public class ZjhGameSession extends GameSession {
 			if ( userCardType == PAIR_VALUE ) {
 				int userPairRank = pairRankMap.get(userId);
 				int toUserPairRank = pairRankMap.get(toUserId);
+				ServerLog.info(sessionId, "==================== userPairRank = " + userPairRank+", toUserPairRank = "+ toUserPairRank);
 				if ( userPairRank > toUserPairRank ) {
 					winner = userId;
 					loser = toUserId;
@@ -526,16 +527,16 @@ public class ZjhGameSession extends GameSession {
 					winner = toUserId;
 					loser = userId;
 				}  else {
-					// 先把对子牌的掩码位清0
-					userRankMask ^= 1 << (userPairRank - 2 );
-					toUserRankMask ^= 1 << (toUserPairRank - 2 );
+					// 先把对子牌的掩码位清除（置为1）
+					userRankMask |= 1 << (userPairRank - 2 );
+					toUserRankMask |= 1 << (toUserPairRank - 2 );
 					// 剩下的值就是单张牌的掩码值，直接比较
 					if ( userRankMask > toUserRankMask ) {
-						winner = userId;
-						loser = toUserId;
-					} else if ( userRankMask < toUserRankMask ) {
 						winner = toUserId;
 						loser = userId;
+					} else if ( userRankMask < toUserRankMask ) {
+						winner = userId;
+						loser = toUserId;
 					} else {
 						// 牌面一样大，直接判发起比牌的玩家输！
 						winner = toUserId;

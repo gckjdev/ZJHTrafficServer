@@ -1,9 +1,6 @@
 package com.orange.game.zjh.robot.client;
 
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -11,18 +8,15 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.math.RandomUtils;
 
-import com.mongodb.DBObject;
 import com.orange.common.log.ServerLog;
-import com.orange.common.mongodb.MongoDBClient;
 import com.orange.game.constants.DBConstants;
-import com.orange.game.constants.ServiceConstant;
 import com.orange.game.model.dao.User;
-import com.orange.game.model.manager.UserManager;
 import com.orange.game.traffic.robot.client.AbstractRobotClient;
 import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.CheckCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
@@ -32,19 +26,20 @@ import com.orange.network.game.protocol.model.GameBasicProtos.PBGameUser.Builder
 
 public class ZjhRobotClient extends AbstractRobotClient {
 
-//	private final static Logger logger = Logger.getLogger(ZjhRobotClient.class.getName());
 	
 	private final ScheduledExecutorService scheduleService = Executors.newScheduledThreadPool(5);
-	private ScheduledFuture<?> foldCardTimerFuture = null;
-	private ScheduledFuture<?> compareCardTimerFuture = null;
-	private Object shareTimerType = null;
-	private Object foldCardTimerType = null;
+	private ScheduledFuture<?> checkCardTimerFuture = null;
+	private ScheduledFuture<?> commonTimerFuture = null;
+
+	private static final int IDX_CHECK = 0;
+	private static final int IDX_FOLD = 1;
+	private static final int IDX_BET = 2;
+	private static final int IDX_RAISE_BET = 3;
+//	private static final int IDX_AUTO_BET = 4;
+	private static final int IDX_COMPARE = 5;
 	
-	private int betTimes = 0;
-	private int singleBet = 5;
-	private int count = 1;
 	
-	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId);
+	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId, userId, nickName);
 	
 	public ZjhRobotClient(User user, int sessionId, int index) {
 		super(user, sessionId,index);
@@ -59,35 +54,44 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		switch (message.getCommand()){
 		
 			case GAME_START_NOTIFICATION_REQUEST:
+				
 				robotIntelligence.introspectPokers(message.getGameStartNotificationRequest());
+				if ( robotIntelligence.canCheckCardNow()) {
+					scheduleCheckCard(10 + RandomUtils.nextInt(20));
+				}
 				break;
 			case NEXT_PLAYER_START_NOTIFICATION_REQUEST:
+				ZjhGameSession session = (ZjhGameSession)(GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId));
+				ServerLog.info(sessionId, "*******************************<EXT_PLAYER_START> singleBet = "+session.getSingleBet());
 				if (message.getCurrentPlayUserId().equals(userId)){
-					if (  betTimes <= 5) {
-						scheduleSend(singleBet, count, false);
-						betTimes++;
-					} else {
-						List<String>  compareUserIds = getCompareUserId(userId);
-						ServerLog.info(sessionId, "*********compareUserIds = " + compareUserIds.toString());
-						if ( compareUserIds != null ) {
-							scheduleCompareCard(compareUserIds.get(0));
+					if ( robotIntelligence.needToPlay() ) {
+						if ( robotIntelligence.decision[IDX_CHECK]) {
+							ServerLog.info(sessionId, "Robot "+ nickName +" set to check card after 1 seconds ");
+							scheduleCheckCard(1);
 						}
-						else {
-							scheduleFoldCard();
+						if ( robotIntelligence.decision[IDX_BET] || robotIntelligence.decision[IDX_RAISE_BET]) {
+							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeBetMessage());
+						} else if ( robotIntelligence.decision[IDX_COMPARE]) {
+							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeCompareCardMessage());
+						} else if (robotIntelligence.decision[IDX_FOLD]) {
+							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeFoldCardMessage());
+						} else {
+							// 默认跟注
+							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeBetMessage());
 						}
+						robotIntelligence.cleanDecision();
 					}
 				}
 				break;
 			case BET_REQUEST:
-				if ( !message.getCurrentPlayUserId().equals(userId)){
-					BetRequest request = message.getBetRequest();
-					singleBet = request.getSingleBet();
-					int count = request.getCount();
-				}
+				robotIntelligence.handleBetRequest(message.getUserId(), message.getBetRequest());
 				break;
 			case CHECK_CARD_REQUEST:
 				break;
 			case COMPARE_CARD_REQUEST:
+				break;
+			case COMPARE_CARD_RESPONSE:
+				robotIntelligence.handleCompareResponse(message.getCompareCardResponse());
 				break;
 			case FOLD_CARD_REQUEST:
 				break;
@@ -97,99 +101,63 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				break;
 		}
 	}
-
 	
-	
-	private List<String> getCompareUserId(String myselfId) {
+	private void scheduleSendMessage(int delay, Runnable message) {
 		
-		List<String> resultList = new ArrayList<String>();
-		
- 		ZjhGameSession session = (ZjhGameSession) GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId);
-		resultList = session.getComprableUserIdList(myselfId);
-		
-		return resultList;
-		
-	}
-
-
-	private void scheduleCompareCard(final String toUserId) {
-		
-		if ( compareCardTimerFuture != null  ){
-			compareCardTimerFuture.cancel(false);
+		if ( commonTimerFuture != null ) {
+			commonTimerFuture.cancel(false);
 		}
 		
-		compareCardTimerFuture = scheduleService.schedule(new Runnable() {			
-			@Override
-			public void run() {
-				sendCompare(toUserId);
-			}
-
-		}, 
-		RandomUtils.nextInt(2)+1, TimeUnit.SECONDS);
-		
+		commonTimerFuture = scheduleService.schedule(message, delay, TimeUnit.SECONDS);
 	}
-
-	protected void sendCompare(String toUserId) {
+	
+	private void scheduleCheckCard(int delay) {
 		
-		ServerLog.info(sessionId, "Robot "+nickName+" tries to compare card with "+ toUserId);
+		if ( checkCardTimerFuture != null ) {
+			checkCardTimerFuture.cancel(false);
+		}
 		
-		CompareCardRequest request = CompareCardRequest.newBuilder()
-				.setToUserId(toUserId)
+		checkCardTimerFuture = scheduleService.schedule(makeCheckCardMessage(), delay, TimeUnit.SECONDS);
+	}
+	
+	private Runnable makeCheckCardMessage() {
+		
+		CheckCardRequest request = CheckCardRequest.newBuilder()
 				.build();
 		
-		GameMessage message = GameMessage.newBuilder()
-				.setCompareCardRequest(request)
+		final GameMessage checkCardMessage = GameMessage.newBuilder()
+				.setCheckCardRequest(request)
 				.setMessageId(getClientIndex())
-				.setCommand(GameCommandType.COMPARE_CARD_REQUEST)
+				.setCommand(GameCommandType.CHECK_CARD_REQUEST)
 				.setUserId(userId)
 				.setSessionId(sessionId)
 				.build();
 		
-		send(message);
-	}
-
-	private void scheduleSend(final int singleBet, final int count, final boolean isAutoBet) {
-		
-		if ( foldCardTimerFuture != null  ){
-			foldCardTimerFuture.cancel(false);
-		}
-		
-		foldCardTimerFuture = scheduleService.schedule(new Runnable() {			
+		return new Runnable() {
 			@Override
 			public void run() {
-				sendBet(singleBet, count, isAutoBet);
+				send(checkCardMessage);
+				ServerLog.info(sessionId, "Robot "+ nickName +" check card Now");
+				robotIntelligence.setHasCheckedCard();
 			}
-		}, 
-		RandomUtils.nextInt(2)+1, TimeUnit.SECONDS);
+		}; 
 	}
 	
-	private void scheduleFoldCard(){
-		
-		if ( foldCardTimerFuture != null  ){
-			foldCardTimerFuture.cancel(false);
-		}
-		
-		foldCardTimerFuture = scheduleService.schedule(new Runnable() {			
-			@Override
-			public void run() {
-				sendFoldCard();
-			}
-		}, 
-		RandomUtils.nextInt(2)+1, TimeUnit.SECONDS);
-	}
-	
-	
-	private void sendBet(int singleBet, int count, boolean isAutoBet) {
+	private Runnable makeBetMessage() {
 		
 		ServerLog.info(sessionId, "Robot "+nickName+" bets");
 		
+		int singleBet = robotIntelligence.getSingleBet();
+		int count = (robotIntelligence.hasCheckedCard() ? 2 : 1);
+		boolean isAutoBet = false;
+				
 		BetRequest request = BetRequest.newBuilder()
 				.setSingleBet(singleBet)
 				.setCount(count)
 				.setIsAutoBet(isAutoBet)
 				.build();
 		
-		GameMessage message = GameMessage.newBuilder()
+		final GameMessage betMessage = GameMessage.newBuilder()
 				.setBetRequest(request)
 				.setMessageId(getClientIndex())
 				.setCommand(GameCommandType.BET_REQUEST)
@@ -197,34 +165,65 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				.setSessionId(sessionId)
 				.build();
 		
-		send(message);		
+		return new Runnable() {
+			@Override
+			public void run() {
+				send(betMessage);
+			}
+		};
+	}
+	
+	private Runnable makeCompareCardMessage() {
+		
+		String toUserId = robotIntelligence.getCompareToUserId();
+		
+		CompareCardRequest request = CompareCardRequest.newBuilder()
+				.setToUserId(toUserId)
+				.build();
+		
+		final GameMessage compareCardMessage = GameMessage.newBuilder()
+				.setCompareCardRequest(request)
+				.setMessageId(getClientIndex())
+				.setCommand(GameCommandType.COMPARE_CARD_REQUEST)
+				.setUserId(userId)
+				.setSessionId(sessionId)
+				.build();
+		
+		return new Runnable() {
+			@Override
+			public void run() {
+				send(compareCardMessage);
+			}
+		};
 	}
 	
 	
-	private void sendFoldCard() {
-		
-		ServerLog.info(sessionId, "Robot "+nickName+" bets");
+	private Runnable makeFoldCardMessage() {
 		
 		FoldCardRequest request = FoldCardRequest.newBuilder()
 				.build();
 		
-		GameMessage message = GameMessage.newBuilder()
+		final GameMessage foldCardMessage = GameMessage.newBuilder()
 				.setFoldCardRequest(request)
 				.setMessageId(getClientIndex())
 				.setCommand(GameCommandType.FOLD_CARD_REQUEST)
 				.setUserId(userId)
 				.setSessionId(sessionId)
 				.build();
-		
-		send(message);
+
+		return new Runnable() {
+			@Override
+			public void run() {
+				send(foldCardMessage);
+				robotIntelligence.setFoldedCard();
+			}
+		};
 	}
 	
 
 	@Override
 	public void resetPlayData(boolean robotWinThisGame) {
-		betTimes = 0;
-		singleBet = 5;
-		count = 1;		
+		robotIntelligence.resetPlayData();
 	}
 	
 	@Override
