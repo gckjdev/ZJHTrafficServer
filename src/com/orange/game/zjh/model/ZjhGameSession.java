@@ -207,13 +207,13 @@ public class ZjhGameSession extends GameSession {
 		ServerLog.info(sessionId, "<shufflePokers> Pokers shuffled!!!");
 	}
 	
-	
-	private synchronized List<PBPoker> fraudDispatchPokers(PBZJHCardType cardType) {
-		
-		List<PBPoker> result = test.dispatchPokersForTest(cardType);
-		
-		return result; 
-	}
+//	
+//	private synchronized List<PBPoker> fraudDispatchPokers(PBZJHCardType cardType) {
+//		
+//		List<PBPoker> result = test.dispatchPokersForTest(cardType);
+//		
+//		return result; 
+//	}
 	
 	
 	private synchronized List<PBPoker> dispatchPokers() {
@@ -303,8 +303,8 @@ public class ZjhGameSession extends GameSession {
 		// 牌面值掩码有没有连续的3个0, 有的话表示是顺子牌。0x1FFF意义同前。 
 		boolean hasThreeConsecutiveBit = IntegerUtil.hasConsecutiveBit(rankMask, 0x1FFF,  3, 0);
 		
-		if ( rankMask == ZjhGameConstant.TYPE_SPECIAL ) { 
-			type = PBZJHCardType.SPECIAL; // 最大的牌，2,3,5， 掩码值为 1 1111 1111 0100
+		if ( rankMask == ZjhGameConstant.TYPE_SPECIAL && howManySuits > 1) { 
+			type = PBZJHCardType.SPECIAL; // 特殊牌：不同花色的2,3,5， 掩码值为 1 1111 1111 0100
 		}
 		else if ( howManyRanks == 1 ) {
 			type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
@@ -536,7 +536,6 @@ public class ZjhGameSession extends GameSession {
 			if ( userCardType == PAIR_VALUE ) {
 				int userPairRank = pairRankMap.get(userId);
 				int toUserPairRank = pairRankMap.get(toUserId);
-				ServerLog.info(sessionId, "==================== userPairRank = " + userPairRank+", toUserPairRank = "+ toUserPairRank);
 				if ( userPairRank > toUserPairRank ) {
 					winner = userId;
 					loser = toUserId;
