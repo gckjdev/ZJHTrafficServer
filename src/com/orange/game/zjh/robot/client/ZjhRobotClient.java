@@ -251,7 +251,9 @@ public class ZjhRobotClient extends AbstractRobotClient {
 
 	@Override
 	public void resetPlayData(boolean robotWinThisGame) {
-		robotIntelligence.resetPlayData();
+		if (robotIntelligence != null){
+			robotIntelligence.resetPlayData();
+		}
 	}
 	
 	@Override
