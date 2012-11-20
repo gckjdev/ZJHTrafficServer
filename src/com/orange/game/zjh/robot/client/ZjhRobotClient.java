@@ -1,6 +1,7 @@
 package com.orange.game.zjh.robot.client;
 
 
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -20,6 +21,7 @@ import com.orange.network.game.protocol.message.GameMessageProtos.CheckCardReque
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
+import com.orange.network.game.protocol.message.GameMessageProtos.ShowCardRequest;
 import com.orange.network.game.protocol.model.GameBasicProtos.PBGameUser;
 import com.orange.network.game.protocol.model.GameBasicProtos.PBGameUser.Builder;
 
@@ -37,6 +39,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	private static final int IDX_RAISE_BET = 3;
 //	private static final int IDX_AUTO_BET = 4;
 	private static final int IDX_COMPARE = 5;
+	private static final int IDX_SHOW = 6;
 	
 	
 	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId, userId, nickName);
@@ -61,20 +64,20 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				}
 				break;
 			case NEXT_PLAYER_START_NOTIFICATION_REQUEST:
-				ZjhGameSession session = (ZjhGameSession)(GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId));
-				ServerLog.info(sessionId, "*******************************<EXT_PLAYER_START> singleBet = "+session.getSingleBet());
 				if (message.getCurrentPlayUserId().equals(userId)){
 					if ( robotIntelligence.needToPlay() ) {
 						if ( robotIntelligence.decision[IDX_CHECK]) {
-							ServerLog.info(sessionId, "Robot "+ nickName +" set to check card after 1 seconds ");
 							scheduleCheckCard(1);
 						}
+						if ( robotIntelligence.decision[IDX_SHOW] ) {
+							scheduleSendMessage(3, makeShowCardMessage());
+						}
 						if ( robotIntelligence.decision[IDX_BET] || robotIntelligence.decision[IDX_RAISE_BET]) {
-							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeBetMessage());
+							scheduleSendMessage(4 + RandomUtils.nextInt(5), makeBetMessage());
 						} else if ( robotIntelligence.decision[IDX_COMPARE]) {
-							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeCompareCardMessage());
+							scheduleSendMessage(4 + RandomUtils.nextInt(5), makeCompareCardMessage());
 						} else if (robotIntelligence.decision[IDX_FOLD]) {
-							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeFoldCardMessage());
+							scheduleSendMessage(4 + RandomUtils.nextInt(5), makeFoldCardMessage());
 						} else {
 							// 默认跟注
 							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeBetMessage());
@@ -216,6 +219,31 @@ public class ZjhRobotClient extends AbstractRobotClient {
 			public void run() {
 				send(foldCardMessage);
 				robotIntelligence.setFoldedCard();
+			}
+		};
+	}
+	
+	
+	private Runnable makeShowCardMessage() {
+		
+		List<Integer> cardIds = robotIntelligence.getShowCardIds();
+		
+		ShowCardRequest request = ShowCardRequest.newBuilder()
+				.addAllCardIds(cardIds)
+				.build();
+		
+		final GameMessage showCardMessage = GameMessage.newBuilder()
+				.setShowCardRequest(request)
+				.setMessageId(getClientIndex())
+				.setCommand(GameCommandType.SHOW_CARD_REQUEST)
+				.setUserId(userId)
+				.setSessionId(sessionId)
+				.build();
+
+		return new Runnable() {
+			@Override
+			public void run() {
+				send(showCardMessage);
 			}
 		};
 	}

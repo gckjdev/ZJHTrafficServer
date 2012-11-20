@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.cassandra.cli.CliParser.newColumnFamily_return;
 import org.apache.commons.lang.math.RandomUtils;
 import com.orange.common.log.ServerLog;
 import com.orange.common.utils.IntegerUtil;
@@ -17,6 +18,7 @@ import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameStartNotificationRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.ShowCardRequest;
 import com.orange.network.game.protocol.model.GameBasicProtos.PBUserResult;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBPoker;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHPoker;
@@ -58,7 +60,7 @@ public class ZjhRobotIntelligence {
 	private static final int IDX_RAISE_BET = 3;
 //	private static final int IDX_AUTO_BET = 4;
 	private static final int IDX_COMPARE = 5;
-//	private static final int IDX_SHOW = 6;
+	private static final int IDX_SHOW = 6;
 //	private static final int IDX_ALL = 7;
 	boolean[] decision = {false,false,false,false,false,false,false};
 
@@ -79,6 +81,9 @@ public class ZjhRobotIntelligence {
 	private int betTimes;
 	private int random;
 
+	private List<Integer> showCardIdList =  new ArrayList<Integer>();
+
+	private boolean hasShowed;
 	
 	public ZjhRobotIntelligence(int sessionId, String userId, String nickName) {
 		this.mySelfId = userId;
@@ -119,7 +124,7 @@ public class ZjhRobotIntelligence {
 		});	
 		
 		playerCount = session.getPlayUserCount();
-		random = RandomUtils.nextInt(playerCount);
+		random = RandomUtils.nextInt(ZjhGameConstant.SESSION_MAX_PLAYER_COUNT);
 	}
 
 	
@@ -175,12 +180,13 @@ public class ZjhRobotIntelligence {
 		
 		if ( ! canRaiseBet() ) {
 			decision[IDX_BET] = true;
-//			singleBet = session.getSingleBet();
 			ServerLog.info(sessionId, "<threeOfaKindCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
+		}
+		if ( round > 3 ) {
+			showCard();
 		}
 		else if ( lastRaiseBetRound == -1 && round >= 2 + RandomUtils.nextInt(2) 
 				|| playerCount - alivePlayerCount > 1 ) { 
-			// 执行到playerCount - alivePlayerCount 说明
 			if (!hasCheckedCard && RandomUtils.nextInt(2) == 1 ) 
 				decision[IDX_CHECK] = true;
 			decision[IDX_RAISE_BET] = true;
@@ -209,7 +215,6 @@ public class ZjhRobotIntelligence {
 		}
 		else {
 			decision[IDX_BET] = true;
-//			singleBet = session.getSingleBet();
 			ServerLog.info(sessionId, "<threeOfaKindCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
 		}
 		
@@ -222,8 +227,10 @@ public class ZjhRobotIntelligence {
 		
 		if ( ! canRaiseBet() ) {
 			decision[IDX_BET] = true;
-//			singleBet = session.getSingleBet();
 			ServerLog.info(sessionId, "<straightFlushCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
+		}
+		if ( round > 3 ) {
+			showCard();
 		}
 		else if ( lastRaiseBetRound == -1 && round >= 2 + RandomUtils.nextInt(2) 
 				|| playerCount - alivePlayerCount > 1 ) { 
@@ -256,7 +263,6 @@ public class ZjhRobotIntelligence {
 		}
 		else {
 			decision[IDX_BET] = true;
-//			singleBet = session.getSingleBet();
 			ServerLog.info(sessionId, "<straightFlushCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
 		}
 	}
@@ -266,8 +272,11 @@ public class ZjhRobotIntelligence {
 		
 		alivePlayerCount = session.getAlivePlayerCount();
 		
-		
-		if ( (round > 8  && alivePlayerCount ==2) || playerCount > 2 && playerCount-alivePlayerCount >= 2 ) {
+
+		if ( round > 2 ) {
+			showCard();
+		}
+		if ( (round > 8  && alivePlayerCount ==2) || round > 1 &&  playerCount > 2 && playerCount-alivePlayerCount >= 2 ) {
 			// 只针对四，或五个人的情况
 			if ( !hasCheckedCard ) 
 				decision[IDX_CHECK] = true;
@@ -288,7 +297,6 @@ public class ZjhRobotIntelligence {
 		}
 		else {
 			decision[IDX_BET] = true;
-//			singleBet = session.getSingleBet();
 			ServerLog.info(sessionId, "<flushCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
 		}
 		
@@ -298,8 +306,12 @@ public class ZjhRobotIntelligence {
 	private void straightCardDecision() {
 		
 		alivePlayerCount = session.getAlivePlayerCount();
+
 		
-		if ( playerCount > 2 && playerCount-alivePlayerCount >= 2 ) {
+		if ( round > 3 ) {
+			showCard();
+		}
+		if ( round > 1 && playerCount > 2 && playerCount-alivePlayerCount >= 2 ) {
 			// 只针对四，或五个人的情况
 			if (!hasCheckedCard)
 				decision[IDX_CHECK] = true;
@@ -325,7 +337,6 @@ public class ZjhRobotIntelligence {
 			ServerLog.info(sessionId, "<straightCardDecision> " + nickName+" decides to compare card(2)");
 		} else {
 			decision[IDX_BET] = true;
-//			singleBet = session.getSingleBet();
 			ServerLog.info(sessionId, "<straightCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
 		}
 		
@@ -344,6 +355,10 @@ public class ZjhRobotIntelligence {
 			hasCheckedCard = true;
 		}
 		
+		if ( round > 3 ) {
+			showCard();
+		}
+		
 		if ( playerCount <= 3 ) {
 			if ( round > 5 && alivePlayerCount == 2) {
 				decision[IDX_COMPARE] = true;
@@ -360,17 +375,15 @@ public class ZjhRobotIntelligence {
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to raise bet");
 			} else {
 				decision[IDX_BET] = true;
-//				singleBet = session.getSingleBet();
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
 			}
 		} else {
-			if ( playerCount - alivePlayerCount >= 2  || ( round > alivePlayerCount && betRaisedByOther) || round > 5 + RandomUtils.nextInt(2)) {
+			if ((round > 1 && playerCount - alivePlayerCount >= 2) || ( round > alivePlayerCount && betRaisedByOther) || round > 5 + RandomUtils.nextInt(2)) {
 				decision[IDX_COMPARE] = true;
 				toCompareUserId = session.getComprableUserIdList(mySelfId).get(0);
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to raise bet(2)");
 			} else {
 				decision[IDX_BET] = true;
-//				singleBet = session.getSingleBet();
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to follow bet(2), singleBet is " + singleBet);
 			} 
 		}
@@ -388,15 +401,15 @@ public class ZjhRobotIntelligence {
 			decision[IDX_CHECK] = true;
 			hasCheckedCard = true;
 		}
+
+		if ( round > 3 ) {
+			showCard();
+		}
 		
 		int highRankCardPos = IntegerUtil.forPosition(myPokerRankMask, 0x1FFF, 0, 0);
-		
-		ServerLog.info(sessionId, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<highCardDecision> Robot "+ nickName + "'s cards: "
-				+ myPokers.toString()+".  highRankCardPos = "+ highRankCardPos);
 		if ( highRankCardPos < 9) {
 			if ( random == 0 && betTimes < 3 + RandomUtils.nextInt(2)) {
 				decision[IDX_BET] = true;
-//				singleBet = session.getSingleBet();
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet
 						+ ", betTimes = " + betTimes);
 				betTimes++;
@@ -422,15 +435,13 @@ public class ZjhRobotIntelligence {
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to compare card(2)");
 			} else {
 				decision[IDX_BET] = true;
-//				singleBet = session.getSingleBet();
-//				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet(2), singleBet is " + singleBet);
+				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet(2), singleBet is " + singleBet);
 			}
 		}
 		else {
 			// 小于均值牌，最大牌又大于9的情况
 			if ( betTimes < (4 - playerCount) + 4 || (compareWin && RandomUtils.nextInt(2) == 0) || round > 10) {
 				decision[IDX_BET] = true;
-//				singleBet = session.getSingleBet();
 				betTimes++;
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet(3), singleBet is " + singleBet);
 			} else {
@@ -473,6 +484,22 @@ public class ZjhRobotIntelligence {
 	}
 
 
+	private void showCard() {
+		
+		if ( RandomUtils.nextInt(8) == 0 && ! hasShowed ) {
+			
+			if (!hasCheckedCard && RandomUtils.nextInt(2) == 1 ) 
+				decision[IDX_CHECK] = true;
+			
+			int random = RandomUtils.nextInt(ZjhGameConstant.PER_USER_CARD_NUM);
+			showCardIdList.add(myPokers.get(random).getPokerId());
+			decision[IDX_SHOW] = true;
+			hasShowed = true;
+		}
+		
+	}
+	
+	
 	public void handleCompareResponse(CompareCardResponse response) {
 		
 		for ( PBUserResult result:response.getUserResultList() ) {
@@ -483,7 +510,6 @@ public class ZjhRobotIntelligence {
 					break;
 				} else {
 					compareWin = true;
-//					betTimes = 0;
 					break;
 				}
 			}
@@ -532,6 +558,7 @@ public class ZjhRobotIntelligence {
 		loseGame = false;
 		hasCheckedCard = false;
 		hasFoldedCard = false;
+		hasShowed = false;
 		
 		singleBet = session.getSingleBet();
 		oldSingleBet = singleBet;
@@ -542,6 +569,11 @@ public class ZjhRobotIntelligence {
 		
 		toCompareUserId = null;
 		compareWin = true;
+		
+		myCardType = 0;
+		myPokerRankMask = 0;
+		myPokers.clear();
+		showCardIdList.clear();
 		
 	}
 
@@ -574,6 +606,12 @@ public class ZjhRobotIntelligence {
 
 		hasFoldedCard = true;
 		loseGame = true;
+	}
+
+	
+
+	public List<Integer> getShowCardIds() {
+		return showCardIdList; 
 	}
 	
 	
