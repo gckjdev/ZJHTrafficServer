@@ -82,6 +82,9 @@ public class ZjhGameSession extends GameSession {
 	private UserGameResultService gameResultService = UserGameResultService.getInstance();
 	private ZjhGameTestData test = ZjhGameTestData.getInstance();
 	
+	
+	private final static double WINNER_TAX_RATE = 0.1;
+	
 	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, int ruleType,int testEnable) {
 		super(sessionId, name, password, createByUser, createBy, ruleType, testEnable);
 		// init state
@@ -414,7 +417,9 @@ public class ZjhGameSession extends GameSession {
 			else {
 				int oldValue = userPlayInfoMask.get(userId);
 				oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
+				ServerLog.info(sessionId, "=====Before checking card : " + Integer.toBinaryString(oldValue));
 				userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_CHECK_CARD | USER_INFO_CHECKED_CARD);
+				ServerLog.info(sessionId, "=====After checking card : " + Integer.toBinaryString(userPlayInfoMask.get(userId)));
 			}
 		}
 		return GameResultCode.SUCCESS;
@@ -692,7 +697,7 @@ public class ZjhGameSession extends GameSession {
 			   .setAlreadCompareLose(compareLosed)
 				.build();
 		
-//		ServerLog.info(sessionId, " PBZJHUserPlayInfo for " + userId + " is : " + pbZjhUserPlayInfo.toString());
+		ServerLog.info(sessionId, " PBZJHUserPlayInfo for " + userId + " is : " + pbZjhUserPlayInfo.toString());
 		
 		return pbZjhUserPlayInfo;
 	}
@@ -708,7 +713,7 @@ public class ZjhGameSession extends GameSession {
 				return PBZJHUserAction.RAISE_BET;
 			case USER_INFO_ACTION_AUTO_BET:
 				return PBZJHUserAction.AUTO_BET;
-			case USER_INFO_CHECKED_CARD:
+			case USER_INFO_ACTION_CHECK_CARD:
 				return PBZJHUserAction.CHECK_CARD;
 			case USER_INFO_ACTION_FOLD_CARD:
 				return PBZJHUserAction.FOLD_CARD;
