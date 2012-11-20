@@ -572,7 +572,6 @@ public class ZjhRobotIntelligence {
 		
 		myCardType = 0;
 		myPokerRankMask = 0;
-		myPokers.clear();
 		showCardIdList.clear();
 		
 	}
