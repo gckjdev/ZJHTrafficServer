@@ -572,8 +572,14 @@ public class ZjhRobotIntelligence {
 		
 		myCardType = 0;
 		myPokerRankMask = 0;
-		myPokers.clear();
-		showCardIdList.clear();
+		
+		if (myPokers != null){
+			myPokers.clear();
+		}
+		
+		if (showCardIdList != null){
+			showCardIdList.clear();
+		}
 		
 	}
 
