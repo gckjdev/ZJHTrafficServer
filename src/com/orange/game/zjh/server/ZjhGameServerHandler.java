@@ -1,5 +1,6 @@
 package com.orange.game.zjh.server;
 
+import org.apache.log4j.Logger;
 import org.jboss.netty.channel.MessageEvent;
 
 import com.orange.game.traffic.messagehandler.AbstractMessageHandler;
@@ -22,7 +23,7 @@ import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 
 public class ZjhGameServerHandler extends GameServerHandler {
 	
-//	private static final Logger logger = Logger.getLogger(ZjhGameServerHandler.class.getName());
+	private static final Logger logger = Logger.getLogger(ZjhGameServerHandler.class.getName());
 	
 	@Override
 	public AbstractMessageHandler getMessageHandler(MessageEvent messageEvent) {
@@ -30,15 +31,14 @@ public class ZjhGameServerHandler extends GameServerHandler {
 		GameMessage message = (GameMessage)messageEvent.getMessage();
 		GameSession session;
 
-		// 当房间不是在玩的状态时, 不再处理消息.
-		// 比如非当前轮玩家弃牌导致游戏结束,然后当前轮玩家投注,此时将不再受理
-		if ( message.hasSessionId() ) {
-			session = GameEventExecutor.getInstance().getSessionManager().findSessionById((int)message.getSessionId());
-			if ( session != null && session.getStatus() != GameSession.SessionStatus.PLAYING.ordinal()
-					&& session.getStatus() != GameSession.SessionStatus.ACTUAL_PLAYING.ordinal() ) {
-				
-			}
-		}
+//		// 当房间不是在玩的状态时, 不再处理消息.
+//		// 比如非当前轮玩家弃牌导致游戏结束,然后当前轮玩家投注,此时将不再受理
+//		if ( message.hasSessionId()) {
+//			session = GameEventExecutor.getInstance().getSessionManager().findSessionById((int)message.getSessionId());
+//			if ( session != null && !session.isGamePlaying()) {
+//				return null;
+//			}
+//		}
 		
 		switch (message.getCommand()){
 			case CREATE_ROOM_REQUEST:
@@ -54,6 +54,12 @@ public class ZjhGameServerHandler extends GameServerHandler {
 				return new ZjhJoinGameRequestHandler(messageEvent);
 				
 			case BET_REQUEST:
+				
+				session = GameEventExecutor.getInstance().getSessionManager().findSessionById((int)message.getSessionId());
+				if (  !session.isGamePlaying()) {
+					logger.info(message.getUserId() + " tries to bet but the game is over!!!");
+					return null;
+				}
 				return new BetRequestHandler(messageEvent);
 				
 			case CHECK_CARD_REQUEST:

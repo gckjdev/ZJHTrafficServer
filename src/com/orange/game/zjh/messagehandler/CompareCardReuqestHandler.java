@@ -5,15 +5,11 @@ import org.jboss.netty.channel.MessageEvent;
 
 import com.orange.game.traffic.messagehandler.AbstractMessageHandler;
 import com.orange.game.traffic.model.dao.GameSession;
-import com.orange.game.traffic.model.dao.GameUser;
-import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.server.GameEventExecutor;
-import com.orange.game.traffic.server.HandlerUtils;
 import com.orange.game.traffic.server.NotificationUtils;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
-import com.orange.network.game.protocol.message.GameMessageProtos;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
@@ -62,7 +58,7 @@ public class CompareCardReuqestHandler extends AbstractMessageHandler {
 		
 		if ( resultCode.equals(GameResultCode.SUCCESS) ){
 			CompareCardResponse response = CompareCardResponse.newBuilder()
-					.addAllUserResult(session.getUserResults())
+					.addAllUserResult(((ZjhGameSession)session).getCompareResults())
 					.build();
 			
 			responseMessage = builder.setCompareCardResponse(response).build();

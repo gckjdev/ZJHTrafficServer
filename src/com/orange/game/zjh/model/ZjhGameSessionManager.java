@@ -56,16 +56,20 @@ public class ZjhGameSessionManager extends GameSessionManager {
 	public GameCommandType  getCommandForUserQuitSession(GameSession session, GameUser quitUser, int sessionUserCount){
 		int aliveUserCount = ((ZjhGameSession)session).getAlivePlayerCount();
 		GameCommandType command = null;		
-		if (session.isCurrentPlayUser(quitUser.getUserId())){
-			command = GameCommandType.LOCAL_PLAY_USER_QUIT;			
-		}
-		else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
-			command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
-		}
-		else if (quitUser.isPlaying()){ // 旁观者不应该激发事件
-			command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
-		} 
-		else {
+		if (session.isGamePlaying() ) {
+			if (session.isCurrentPlayUser(quitUser.getUserId())){
+				command = GameCommandType.LOCAL_PLAY_USER_QUIT;			
+			}
+			else if (aliveUserCount == 1 ){ // 当前存活玩家只剩1个  
+				command = GameCommandType.LOCAL_ALL_OTHER_USER_QUIT;			
+			}
+			else if (quitUser.isPlaying()){ // 旁观者不应该激发事件
+				command = GameCommandType.LOCAL_OTHER_USER_QUIT;						
+			}	 
+			else {
+				command = null;
+			}
+		} else {
 			command = null;
 		}
 		

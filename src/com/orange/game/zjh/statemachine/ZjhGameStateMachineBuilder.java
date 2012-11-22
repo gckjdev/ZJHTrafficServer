@@ -56,7 +56,6 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		Action setTotalBet				 = new ZjhGameAction.SetTotalBet();
 		Action setAllPlayerLoseGameToFalse
 												 = new ZjhGameAction.SetAllPlayerLoseGameToFalse();
-		Action updateQuitPlayerInfo	 = new ZjhGameAction.UpdateQuitPlayerInfo();
 		Action setSelectPlayerWaitTimer= new ZjhGameAction.SetSelectPlayerWaitTimer();
 		Action setCompleteGameWaitTimer= new ZjhGameAction.setCompleteGameTimer();
 		
@@ -277,8 +276,8 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addAction(setShowResultTimer)
 						.addAction(finishGame)
 						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
-						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)
+						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)			
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)

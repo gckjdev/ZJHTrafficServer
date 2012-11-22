@@ -7,12 +7,17 @@ import com.orange.common.log.ServerLog;
 import com.orange.common.statemachine.Action;
 import com.orange.game.constants.DBConstants;
 import com.orange.game.traffic.model.dao.GameSession;
+import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.server.GameEventExecutor;
+import com.orange.game.traffic.server.HandlerUtils;
 import com.orange.game.traffic.server.NotificationUtils;
 import com.orange.game.traffic.service.UserGameResultService;
 import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
+import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
 import com.orange.network.game.protocol.message.GameMessageProtos;
+import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameOverNotificationRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameStartNotificationRequest;
@@ -85,8 +90,32 @@ public class ZjhGameAction{
 		public void execute(Object context) {
 			ZjhGameSession session = (ZjhGameSession)context;
 			String userId = session.getCurrentPlayUserId();
+			
+			// fold card
 			ServerLog.info(session.getSessionId(), "auto fold card user is " + userId);
 			session.foldCard(userId);
+			
+			// send response
+			FoldCardResponse foldCardResponse = FoldCardResponse.newBuilder().build();
+			GameMessage response = GameMessage.newBuilder()
+					.setCommand(GameCommandType.FOLD_CARD_RESPONSE)
+					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
+					.setResultCode(GameResultCode.SUCCESS)
+					.setUserId(userId)
+					.setFoldCardResponse(foldCardResponse)
+					.build();
+			org.jboss.netty.channel.Channel channel = GameUserManager.getInstance().findUserById(userId).getChannel();
+			HandlerUtils.sendMessage(response, channel);
+			
+			// broadcast to others
+			FoldCardRequest request = FoldCardRequest.newBuilder().build();
+			GameMessage broadcastMessage = GameMessage.newBuilder()
+					.setCommand(GameCommandType.FOLD_CARD_REQUEST)
+					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
+					.setUserId(userId)
+					.setFoldCardRequest(request)
+					.build();
+			NotificationUtils.broadcastNotification(session, userId, broadcastMessage);
 		}
 
 	}
@@ -188,27 +217,20 @@ public class ZjhGameAction{
 		public void execute(Object context) {
 			
 			ZjhGameSession session = (ZjhGameSession)context;
+
 			
-			Collection<PBUserResult> userResult = session.judgeWhoWins() ;
-					
-			// If userResult's size is not 1, which means it only contains the winner's result.
-			// Since all other user has been sync to db before.
-			if ( userResult.size() != 1 ) {
-				String exceptionString = "<CompleteGame> PBUserResult contains not only one element: "+userResult.toString();
-				ServerLog.error(session.getSessionId(), new Exception(exceptionString));
-			}
-			ServerLog.info(session.getSessionId(), "<completeGame> userResult is " +userResult.toString());
+			PBUserResult winnerResult = session.judgeWhoWins();
+			Collection<PBUserResult> userResult = session.getUserResults() ;
+			
 			
 			// write game result(playtimes, wintime, losetimes, etc) into db
-			for ( PBUserResult result : userResult ) {
-				service.writeUserGameResultIndoDb(session.getSessionId(), result, DBConstants.GAME_ID_ZJH);
-			}
+			ServerLog.info(session.getSessionId(), "<completeGame> userResult is " +userResult.toString());
+			service.writeAllUserGameResultIntoDB(session, DBConstants.GAME_ID_ZJH);
 			
-			// charge/deduct coins
-			service.writeAllUserCoinsIntoDB(session,DBConstants.C_CHARGE_SOURCE_ZJH_WIN);
+			// charge  coins for winner
+			service.writeUserCoinsIntoDB(session.getSessionId(), winnerResult, DBConstants.C_CHARGE_SOURCE_ZJH_RESULTS);
 			
-			
-			// broadcast complete complete with result
+			// broadcast complete message with result
 			PBZJHGameResult result = PBZJHGameResult.newBuilder()
 			    	.addAllUserResult(userResult)
 					.build();

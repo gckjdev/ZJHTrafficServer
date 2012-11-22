@@ -360,7 +360,7 @@ public class ZjhRobotIntelligence {
 		}
 		
 		if ( playerCount <= 3 ) {
-			if ( round > 5 && alivePlayerCount == 2) {
+			if ( round > 5 && alivePlayerCount == 2 || RandomUtils.nextInt(2) == 0) {
 				decision[IDX_COMPARE] = true;
 				toCompareUserId = session.getComprableUserIdList(mySelfId).get(0);
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to compare card");
@@ -472,7 +472,10 @@ public class ZjhRobotIntelligence {
 			if ( CHIPS[i] >  currentSingleBet )
 				break;
 		
-		if ( direction == BOTTOM_UP ) {
+		if ( i == CHIPS.length ) {
+			return CHIPS[i-1];
+		}
+		else if ( direction == BOTTOM_UP ) {
 			ServerLog.info(sessionId, "!!!!!Current single bet is " +currentSingleBet+", bottomup, raise bet to " + CHIPS[i]);
 			return CHIPS[i];
 		}
