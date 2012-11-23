@@ -378,7 +378,7 @@ public class ZjhRobotIntelligence {
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet);
 			}
 		} else {
-			if ((round > 1 && playerCount - alivePlayerCount >= 2) || ( round > alivePlayerCount && betRaisedByOther) || round > 5 + RandomUtils.nextInt(2)) {
+			if ((round > 2 && playerCount - alivePlayerCount >= 2) || ( round > alivePlayerCount && betRaisedByOther) || round > 5 + RandomUtils.nextInt(2)) {
 				decision[IDX_COMPARE] = true;
 				toCompareUserId = session.getComprableUserIdList(mySelfId).get(0);
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to raise bet(2)");
