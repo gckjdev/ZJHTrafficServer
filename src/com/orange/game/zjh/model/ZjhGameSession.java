@@ -553,16 +553,12 @@ public class ZjhGameSession extends GameSession {
 			if ( userCardType == PAIR_VALUE ) {
 				int userPairRank = pairRankMap.get(userId);
 				int toUserPairRank = pairRankMap.get(toUserId);
-				ServerLog.info(sessionId, "userPairRank = " + userPairRank + ", toUserPairRank = " + toUserPairRank);
-				ServerLog.info(sessionId, "In binary, userPairRank = " + Integer.toBinaryString(userPairRank) + ", toUserPairRank = " + Integer.toBinaryString(toUserPairRank));
 				if ( userPairRank > toUserPairRank ) {
 					winner = userId;
 					loser = toUserId;
-					ServerLog.info(sessionId, "<compareCard> Both pair , user " + userId + "'s pair is greater than that of toUser" + toUserId);
 				} else if (userPairRank < toUserPairRank ) {
 					winner = toUserId;
 					loser = userId;
-					ServerLog.info(sessionId, "<compareCard> Both pair , toUser " + toUserId + "'s pair is greater than that of user " + userId);
 				}  else {
 					// 先把对子牌的掩码位清除（置为1）
 					userRankMask |= 1 << (userPairRank - 2 );
@@ -571,20 +567,13 @@ public class ZjhGameSession extends GameSession {
 					if ( userRankMask > toUserRankMask ) {
 						winner = toUserId;
 						loser = userId;
-						ServerLog.info(sessionId, "<compareCard> Both pair equals, toUser " + toUserId + "'s single card "
-								+ PBPokerRank.valueOf(IntegerUtil.forPosition(toUserRankMask, 0x1FFF, 0, 0)+2) + " is greater than " +
-										"that of user " + PBPokerRank.valueOf(IntegerUtil.forPosition(userRankMask, 0x1FFF, 0, 0)+2));
 					} else if ( userRankMask < toUserRankMask ) {
 						winner = userId;
 						loser = toUserId;
-						ServerLog.info(sessionId, "<compareCard> Both pair equals, User " + toUserId + "'s single card "
-								+ PBPokerRank.valueOf(IntegerUtil.forPosition(userRankMask, 0x1FFF, 0, 0)+2) + " is greater than " +
-										"that of toUser " + PBPokerRank.valueOf(IntegerUtil.forPosition(toUserRankMask, 0x1FFF, 0, 0)+2));
 					} else {
 						// 牌面一样大，直接判发起比牌的玩家输！
 						winner = toUserId;
 						loser = userId;
-						ServerLog.info(sessionId, "<compareCard> Both pair equals and single card equals, user " + userId + " loses!");
 					}
 				}
 			}
@@ -629,7 +618,7 @@ public class ZjhGameSession extends GameSession {
 					UserManager.deductAccount(dbClient, userId, ZjhGameConstant.COMPARE_CHANLLEGER_LOSS, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
 				}
 			});
-			ServerLog.info(sessionId, "<compareCard> User " + userId + " chanllenge to compare card, but loses, so gets " +
+			ServerLog.info(sessionId, "<compareCard> User " + userId + " chanllenges to compare card, but fails, so gets " +
 					compareChanllengerLoss + " coins loss. ");
 		}
 				

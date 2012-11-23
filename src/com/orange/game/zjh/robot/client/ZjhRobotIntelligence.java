@@ -408,7 +408,7 @@ public class ZjhRobotIntelligence {
 		
 		int highRankCardPos = IntegerUtil.forPosition(myPokerRankMask, 0x1FFF, 0, 0);
 		if ( highRankCardPos < 9) {
-			if ( random == 0 && betTimes < 3 + RandomUtils.nextInt(2)) {
+			if ( round == 1 || random == 0 && betTimes < 3 + RandomUtils.nextInt(2)) {
 				decision[IDX_BET] = true;
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet
 						+ ", betTimes = " + betTimes);
@@ -440,7 +440,7 @@ public class ZjhRobotIntelligence {
 		}
 		else {
 			// 小于均值牌，最大牌又大于9的情况
-			if ( betTimes < (4 - playerCount) + 4 || (compareWin && RandomUtils.nextInt(2) == 0) || round > 10) {
+			if ( betTimes < (4 - playerCount) + 4 || (compareWin && RandomUtils.nextInt(2) == 0) || round == 1) {
 				decision[IDX_BET] = true;
 				betTimes++;
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet(3), singleBet is " + singleBet);
