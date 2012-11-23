@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.cassandra.cli.CliParser.newColumnFamily_return;
 import org.apache.commons.lang.math.RandomUtils;
 import com.orange.common.log.ServerLog;
 import com.orange.common.utils.IntegerUtil;
