@@ -55,7 +55,6 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		switch (message.getCommand()){
 		
 			case GAME_START_NOTIFICATION_REQUEST:
-				
 				robotIntelligence.introspectPokers(message.getGameStartNotificationRequest());
 				if ( robotIntelligence.canCheckCardNow()) {
 					scheduleCheckCard(10 + RandomUtils.nextInt(20));

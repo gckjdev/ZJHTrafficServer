@@ -481,20 +481,15 @@ public class ZjhGameSession extends GameSession {
 		else {
 			// 亮牌.
 			long faceStatusMask = faceStatusMap.get(userId);
-			ServerLog.info(sessionId, "!!!!!!!!!! Before show card, faceStatusMask = " + faceStatusMask);
 			for ( Integer showPokerId : pokerIds ) {
 				faceStatusMask |= (1 << showPokerId); // 把对应位置为1, 表示该牌亮出来了
-				ServerLog.info(sessionId, userId + " shows card : " + pokerIdToRank(showPokerId)+"[suit:" + pokerIdToSuit(showPokerId)+"]" );
-				ServerLog.info(sessionId, "<showCard> pokerId = " + showPokerId + ", faceStatuMask = " + Long.toBinaryString(faceStatusMask));
 			}
 			faceStatusMap.put(userId, faceStatusMask);
 			
 			// 更新其他状态，包括lastAction等
 			int oldValue = userPlayInfoMask.get(userId);
 			oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
-//			ServerLog.info(sessionId, "=====Before showing card : " + Integer.toBinaryString(oldValue));
 			userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_SHOW_CARD | USER_INFO_SHOWED_CARD);
-//			ServerLog.info(sessionId, "=====After showing card : " + Integer.toBinaryString(userPlayInfoMask.get(userId)));
 		}
 		return GameResultCode.SUCCESS;
 	}
@@ -645,7 +640,7 @@ public class ZjhGameSession extends GameSession {
 		
 		PBUserResult loserResult = gameResultService.makePBUserResult(loser,false,-1 * compareChanllengerLoss);
 		compareResults.put(loser, loserResult);
-		
+		 
 		// 放入最终结果,以便游戏结束时一起送回客户端
 //		userResults.put(loser, loserResult);
 		
@@ -851,7 +846,7 @@ public class ZjhGameSession extends GameSession {
 
 
 	public Collection<PBUserResult> getCompareResults() {
-		return compareResults.values();
+		return Collections.unmodifiableCollection(compareResults.values());
 	}
 	
 }
