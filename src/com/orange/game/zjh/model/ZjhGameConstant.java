@@ -8,7 +8,7 @@ public class ZjhGameConstant {
 	
 	public static final String GAME_ID_ZJH = DBConstants.GAME_ID_ZJH;
 	
-	public static final int SESSION_MAX_PLAYER_COUNT = 5;
+	public static final int MAX_PLAYER_PER_SESSION = 5;
 	
 	public static final int PER_USER_CARD_NUM = 3; // each user has 3 cards;
 	public static final int ALL_CARD_NUM = 52;
@@ -61,10 +61,15 @@ public class ZjhGameConstant {
 	public static final int USER_INFO_INITIAL_VALUE 		= 0x20;   // 00 0000 0010 0000, only set ACTION_NONE
 	public static final int LAST_ACTION_MASK 			      = 0x3FE0; // 11 1111 1110 0000, used to clear last action
 
-
+   // For comparing card
 	public final static double WINNER_TAX_RATE = 0.1;
-
 	public static final int COMPARE_CHANLLEGER_LOSS = 200;
+
+	// Single bet by rule type 
+	public static final int SINGLE_BET_BEGINER = 5;
+	public static final int SINGLE_BET_NORMAL = 5;
+	public static final int SINGLE_BET_DUAL = 50;
+	public static final int SINGLE_BET_RICH = 500;
 
 
 	

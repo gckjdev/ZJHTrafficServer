@@ -13,6 +13,7 @@ import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.game.traffic.server.GameServerHandler;
 import com.orange.game.zjh.messagehandler.BetRequestHandler;
+import com.orange.game.zjh.messagehandler.ChangeCardRequestHandler;
 import com.orange.game.zjh.messagehandler.CheckCardRequestHandler;
 import com.orange.game.zjh.messagehandler.CompareCardReuqestHandler;
 import com.orange.game.zjh.messagehandler.FoldCardRequestHandler;
@@ -73,6 +74,9 @@ public class ZjhGameServerHandler extends GameServerHandler {
 				
 			case FOLD_CARD_REQUEST:
 				return new FoldCardRequestHandler(messageEvent);
+
+			case CHANGE_CARD_REQUEST:
+				return new ChangeCardRequestHandler(messageEvent);
 				
 			case REGISTER_ROOMS_NOTIFICATION_REQUEST:
 				return new RegisterRoomsRequestHandler(messageEvent);

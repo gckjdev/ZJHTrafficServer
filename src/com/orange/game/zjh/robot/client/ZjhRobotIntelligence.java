@@ -123,7 +123,7 @@ public class ZjhRobotIntelligence {
 		});	
 		
 		playerCount = session.getPlayUserCount();
-		random = RandomUtils.nextInt(ZjhGameConstant.SESSION_MAX_PLAYER_COUNT);
+		random = RandomUtils.nextInt(ZjhGameConstant.MAX_PLAYER_PER_SESSION);
 	}
 
 	

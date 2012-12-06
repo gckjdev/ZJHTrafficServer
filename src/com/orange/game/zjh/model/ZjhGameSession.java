@@ -23,6 +23,7 @@ import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.service.UserGameResultService;
 import com.orange.game.zjh.statemachine.ZjhGameStateMachineBuilder;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
+import com.orange.network.game.protocol.message.GameMessageProtos.ChangeCardResponse;
 import com.orange.network.game.protocol.model.GameBasicProtos.PBUserResult;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBPoker;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBPokerRank;
@@ -63,7 +64,10 @@ public class ZjhGameSession extends GameSession {
 	// 对子牌面值(如果有对子的话), 方便比牌操作
 	private Map<String, Integer> pairRankMap = new ConcurrentHashMap<String, Integer>();
 	// 每个玩家的总注
-	private Map<String, Integer> totalBetMap =  new ConcurrentHashMap<String, Integer>();
+	private Map<String, Integer> totalBetMap = new ConcurrentHashMap<String, Integer>();
+	// 每个玩家的下注次数（抵消掉换牌用去的次数，每三次可换一张牌)
+	private Map<String, Integer> playerBetTimes = new ConcurrentHashMap<String, Integer>();;
+	
 	// 每玩家游戏状态信息
 	// bit 0 : is auto bet?  [0: false, 1: true]
 	// bit 1 : has checked card? [0: false, 1: true]
@@ -89,34 +93,22 @@ public class ZjhGameSession extends GameSession {
 	private UserGameResultService gameResultService = UserGameResultService.getInstance();
 	private ZjhGameTestData test = ZjhGameTestData.getInstance();
 	
-	private final static int  INITIAL_SINGLE_BET = 5;
+	private final int  initSingleBet ;
+	private ChangeCardResponse response = null;
 	
-	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, int ruleType,int testEnable) {
-		super(sessionId, name, password, createByUser, createBy, ruleType, testEnable);
+	
+	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, 
+			int ruleType, int maxPlayerCount, int testEnable, int initSingleBet) {
+		super(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable);
 		// init state
 		this.currentState = ZjhGameStateMachineBuilder.INIT_STATE;
 		// 初始化一副“新”扑克牌
 		for (int i = 0; i < ZjhGameConstant.ALL_CARD_NUM; i++) {
 			pokerPool[i] = i;
 		}
-		this.singleBet = INITIAL_SINGLE_BET;
+		this.singleBet = this.initSingleBet = initSingleBet;
 	}
 	
-	@Override
-	public int initMaxUserPerSession() {
-		// TODO: can set by ruleType
-		int retValue;
-		String sessionMaxPlayerCount = System.getProperty("game.maxsessionuser");
-		
-		if ( sessionMaxPlayerCount != null && ! sessionMaxPlayerCount.isEmpty()) {
-			retValue = Integer.parseInt(sessionMaxPlayerCount);
-		} else {
-			retValue = ZjhGameConstant.SESSION_MAX_PLAYER_COUNT; 
-		}
-
-		ServerLog.info(sessionId, "ZjhGameSession: set maxUserPerSession to " + retValue);
-		return retValue;
-	}
 
 	public void resetGame(){
 		super.resetGame();
@@ -125,7 +117,7 @@ public class ZjhGameSession extends GameSession {
 	
 	@Override	
 	public void restartGame(){	
-		singleBet = INITIAL_SINGLE_BET;
+		singleBet = initSingleBet;
 		pokerPoolCursor = 0;
 		someOneGotKing = false;
 		userPokersMap.clear();
@@ -138,6 +130,7 @@ public class ZjhGameSession extends GameSession {
 		pairRankMap.clear();
 		compareResults.clear();
 		userResults.clear();
+		playerBetTimes.clear();
 	}
 
 	
@@ -223,12 +216,7 @@ public class ZjhGameSession extends GameSession {
 	private synchronized List<PBPoker> dispatchPokers() {
 		
 		List<PBPoker> result = new ArrayList<PBPoker>();
-		PBPokerRank rank = null;
-		PBPokerSuit suit = null;
 		PBPoker pbPoker = null;
-		int pokerId;
-		boolean faceUp = false;
-		int  oldCursor = pokerPoolCursor;
 		
 		if (  testEnable == 1 ) {
 			if ( RandomUtils.nextInt(2) == 0) {
@@ -238,25 +226,15 @@ public class ZjhGameSession extends GameSession {
 		}
 		
 		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
-		for (int i = oldCursor; i < oldCursor + ZjhGameConstant.PER_USER_CARD_NUM; i++) {
-			rank = PBPokerRank.valueOf(pokerPool[i] / SUIT_TYPE_NUM + 2);
-			suit = PBPokerSuit.valueOf(pokerPool[i] % SUIT_TYPE_NUM + 1);
-			pokerId =  toPokerId(rank, suit);
-					
-			pbPoker = PBPoker.newBuilder()
-								.setPokerId(pokerId)
-								.setRank(rank)
-								.setSuit(suit)
-								.setFaceUp(faceUp)
-								.build();
+		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
+			pbPoker = getOneCardFromPokerPool();
 			result.add(pbPoker);		
-			pokerPoolCursor++; // 扑克堆游标，游标前面的表示已经发出的牌, 每发出一张牌就把游标前移一个元素。
 		}
 		
 		return result;
 	}
 
-	
+	// 该方法会在发牌时和换牌时被调用。最后一个参数标志是否要先清除
 	private PBZJHCardType introspectCardType(List<PBPoker> pokers,String userId) {
 		
 		PBZJHCardType type = null;
@@ -267,6 +245,12 @@ public class ZjhGameSession extends GameSession {
 		int suitMask = ZjhGameConstant.SUIT_MASK;
 		long faceStatusMask = ZjhGameConstant.FACE_STATUS_MASK;
 		boolean foundPair = false;
+		
+		//如果已经存有该玩家的状态，要清空; 没有此操作也不影响。
+		rankMaskMap.remove(userId);
+		suitMaskMap.remove(userId);
+		faceStatusMap.remove(userId);
+		pairRankMap.remove(userId);
 		
 		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
 			PBPoker poker = pokers.get(i);
@@ -393,6 +377,14 @@ public class ZjhGameSession extends GameSession {
 				
 			// 更新房间当前总注 
 			totalBet += givenSingleBet * count;
+			
+			// 更新该玩家下注次数
+			if (playerBetTimes.containsKey(userId)) {
+				int betTimes = playerBetTimes.get(userId);
+				playerBetTimes.put(userId, ++betTimes);
+			} else {
+				playerBetTimes.put(userId,1);
+			}
 			
 			int oldValue = userPlayInfoMask.get(userId);
 			oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
@@ -829,6 +821,71 @@ public class ZjhGameSession extends GameSession {
 		
 	}
 	
+	
+	public GameResultCode changeCard(String userId, int toChangeCardId) {
+		
+		if ( !userPlayInfoMask.containsKey(userId) ) {
+			ServerLog.info(sessionId, "<ZjhGameSessuion.changeCard> "+ userId+ " not in this session???!!!");
+			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
+		} 
+		else {
+			List<PBPoker> pokers = userPokersMap.get(userId);
+			
+			PBPoker newPoker = getOneCardFromPokerPool();
+			PBPoker object = null;
+			for ( PBPoker poker : pokers ) {
+				if ( poker.getPokerId() == toChangeCardId ) {
+					object = poker;
+					break;
+				}
+			}
+			pokers.remove(object);
+			pokers.add(newPoker);
+			userPokersMap.put(userId, pokers);
+			
+			PBZJHCardType newCardType = introspectCardType(pokers, userId);
+			cardTypeMap.put(userId, newCardType);
+
+			int oldValue = userPlayInfoMask.get(userId);
+			oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
+			userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_CHANGE_CARD);
+			
+			response = ChangeCardResponse.newBuilder()
+										.setOldCardId(toChangeCardId)
+										.setNewPoker(newPoker)
+										.setCardType(newCardType)
+										.build();
+			
+			return GameResultCode.SUCCESS;
+		}
+
+		
+	}
+
+	private PBPoker getOneCardFromPokerPool() {
+		
+		PBPokerRank rank = null;
+		PBPokerSuit suit = null;
+		
+		synchronized (this) {
+			rank = PBPokerRank.valueOf(pokerPool[pokerPoolCursor] / SUIT_TYPE_NUM + 2);
+			suit = PBPokerSuit.valueOf(pokerPool[pokerPoolCursor] % SUIT_TYPE_NUM + 1);
+			pokerPoolCursor++; // 扑克堆游标，游标前面的表示已经发出的牌, 每发出一张牌就把游标前移一个元素。
+		}
+		
+		int pokerId = toPokerId(rank, suit);
+		boolean faceUp = false;
+		PBPoker newPoker = PBPoker.newBuilder()
+							.setPokerId(pokerId)
+							.setRank(rank)
+							.setSuit(suit)
+							.setFaceUp(faceUp)
+							.build();
+		
+		return newPoker;
+	}
+	
+	
 	public List<String> getComprableUserIdList(String myselfId) {
 		
 		List<String> result = new ArrayList<String>();
@@ -840,7 +897,6 @@ public class ZjhGameSession extends GameSession {
 				result.add(userId);
 			}
 		}
-		
 		return result;
 	}
 
@@ -848,5 +904,14 @@ public class ZjhGameSession extends GameSession {
 	public Collection<PBUserResult> getCompareResults() {
 		return Collections.unmodifiableCollection(compareResults.values());
 	}
+
+	
+	public synchronized ChangeCardResponse getChangeCardResponse() {
+		ChangeCardResponse result = response;
+		response = null;
+		return result;
+	}
+
+	
 	
 }

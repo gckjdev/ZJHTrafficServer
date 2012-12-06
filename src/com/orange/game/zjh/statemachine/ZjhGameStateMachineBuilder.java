@@ -135,7 +135,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		stateMachine.addState(new GameState(GameStateKey.SELECT_PLAYER_WAIT_TIMER))
 						.addAction(setSelectPlayerWaitTimer)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME) //有玩家退出后，存活人数为1，结束游戏
-						.addTransition(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌并且存活人数为1,导致游戏结束
+						.addTransition(GameCommandType.LOCAL_NOT_CURRENT_TURN_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌并且存活人数为1,导致游戏结束
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.SELECT_NEXT_PLAYER) //时间到，选择下一玩家 
 						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT) // 此时当前玩家已完成其轮次，下一用户还未选择，保持当前状态，延后处理
 						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT) // 别的玩家退出，但还未结束游戏，保持当前状态，延后处理
@@ -180,7 +180,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.PLAY_USER_QUIT)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.TIMEOUT_FOLD_CARD) // 超时没作出选择，视为弃牌
-						.addTransition(GameCommandType.NOT_CURRENT_TURN_LOCAL_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌导致游戏可结束
+						.addTransition(GameCommandType.LOCAL_NOT_CURRENT_TURN_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌导致游戏可结束
 						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT) // 激发此事件说明房间至少剩2个以上玩家，且该退出玩家不是当前轮，所以不动
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)  // 旁观者加入
 						.addAction(clearTimer);	

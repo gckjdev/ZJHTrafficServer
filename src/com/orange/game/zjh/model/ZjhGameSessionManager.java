@@ -1,16 +1,21 @@
 package com.orange.game.zjh.model;
 
+import com.orange.common.log.ServerLog;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.model.manager.GameSessionManager;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
+import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHRuleType;
 
 public class ZjhGameSessionManager extends GameSessionManager {
 
 	@Override
-	public GameSession createSession(int sessionId, String name, String password, boolean createByUser, String createBy, int ruleType,int testEnable) {
-		return new ZjhGameSession(sessionId, name, password, createByUser, createBy, ruleType,testEnable);
+	public GameSession createSession(int sessionId, String name,
+			String password, boolean createByUser, String createBy,
+			int ruleType, int maxPlayerCount, int testEnable) {
+		return new ZjhGameSession(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable, getInitSingleBet(ruleType));
 	}
+
 
 	@Override
 	public String getGameId() {
@@ -20,15 +25,29 @@ public class ZjhGameSessionManager extends GameSessionManager {
 	
 	@Override
 	public int getRuleType() {
-//		String ruleType = System.getProperty("ruletype");
-//		if (ruleType != null && !ruleType.isEmpty()){
-//			return Integer.parseInt(ruleType);
-//		}
-//		return DiceGameRuleType.RULE_NORMAL_VALUE; // default
-		return 0;
+		String ruleType = System.getProperty("ruletype");
+		if (ruleType != null && !ruleType.isEmpty()){
+			return Integer.parseInt(ruleType);
+		}
+		return PBZJHRuleType.NORMAL_VALUE;
 	}
 	
-
+	
+   public int getInitSingleBet(int ruleType) {
+	   
+	    switch (ruleType) {
+			case PBZJHRuleType.BEGINER_VALUE:
+				return ZjhGameConstant.SINGLE_BET_BEGINER;
+			case PBZJHRuleType.NORMAL_VALUE:
+				return ZjhGameConstant.SINGLE_BET_NORMAL;
+			case PBZJHRuleType.DUAL_VALUE:
+				return ZjhGameConstant.SINGLE_BET_DUAL;
+			case PBZJHRuleType.RICH_VALUE:
+				return ZjhGameConstant.SINGLE_BET_RICH;
+			default:
+				return 5;
+		}
+   }
 	
 	@Override
 	// On: 1, Off:0[default]
@@ -74,5 +93,27 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		}
 		
 		return command;
+	}
+
+	
+	@Override
+	public int getMaxPlayerCount() {
+		
+		int retValue;
+		String sessionMaxPlayerCount = System.getProperty("game.maxsessionuser");
+		int ruleType = getRuleType();
+		
+		if ( sessionMaxPlayerCount != null && ! sessionMaxPlayerCount.isEmpty()) {
+			retValue = Integer.parseInt(sessionMaxPlayerCount);
+		} 
+		else if (ruleType == PBZJHRuleType.DUAL_VALUE){
+			retValue = 2; 
+		} else {
+			retValue = ZjhGameConstant.MAX_PLAYER_PER_SESSION;
+		}
+		
+		ServerLog.info(0, "ZjhGameSession : RuleType = "+PBZJHRuleType.valueOf(ruleType)
+				+", MaxUserPerSession = "+ retValue);
+		return retValue;
 	}
 }

@@ -236,7 +236,7 @@ public class ZjhGameAction{
 					.build();
 				
 			GameOverNotificationRequest notification = GameOverNotificationRequest.newBuilder()
-				.setZJHGameResult(result)
+				.setZjhGameResult(result)
 				.build();
 			
 			GameMessageProtos.GameMessage.Builder builder = GameMessageProtos.GameMessage.newBuilder()
