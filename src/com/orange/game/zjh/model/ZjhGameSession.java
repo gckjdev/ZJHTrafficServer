@@ -251,6 +251,7 @@ public class ZjhGameSession extends GameSession {
 		suitMaskMap.remove(userId);
 		faceStatusMap.remove(userId);
 		pairRankMap.remove(userId);
+		cardTypeMap.remove(userId);
 		
 		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
 			PBPoker poker = pokers.get(i);
