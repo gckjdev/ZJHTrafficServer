@@ -172,10 +172,11 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		stateMachine.addState(new GameState(GameStateKey.WAIT_NEXT_PLAYER_PLAY))
 						.addAction(broadcastNextPlayerNotification)
 						.addAction(setWaitClaimTimer)
-						.addTransition(GameCommandType.LOCAL_BET, GameStateKey.PLAYER_BET) // 跟注， 加注， 跟到底 
 						.addEmptyTransition(GameCommandType.LOCAL_CHECK_CARD) // 看牌 
-						.addTransition(GameCommandType.LOCAL_FOLD_CARD, GameStateKey.PLAYER_FOLD_CARD) // 弃牌
 						.addEmptyTransition(GameCommandType.LOCAL_SHOW_CARD) // 亮牌
+						.addEmptyTransition(GameCommandType.LOCAL_CHANGE_CARD) // 换牌
+						.addTransition(GameCommandType.LOCAL_BET, GameStateKey.PLAYER_BET) // 跟注， 加注， 跟到底 
+						.addTransition(GameCommandType.LOCAL_FOLD_CARD, GameStateKey.PLAYER_FOLD_CARD) // 弃牌
 						.addTransition(GameCommandType.LOCAL_COMPARE_CARD,GameStateKey.PLAYER_COMPARE_CARD) // 比牌
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.PLAY_USER_QUIT)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME)
