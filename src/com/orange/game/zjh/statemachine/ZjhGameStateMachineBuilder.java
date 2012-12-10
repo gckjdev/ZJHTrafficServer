@@ -6,6 +6,7 @@ import com.orange.common.statemachine.Condition;
 import com.orange.common.statemachine.DecisionPoint;
 import com.orange.common.statemachine.State;
 import com.orange.common.statemachine.StateMachine;
+import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.statemachine.CommonGameAction;
 import com.orange.game.traffic.statemachine.CommonGameCondition;
@@ -67,14 +68,18 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addTransition(GameCommandType.LOCAL_NEW_USER_JOIN, GameStateKey.CHECK_USER_COUNT);
 		
 		stateMachine.addState(new GameState(GameStateKey.CHECK_USER_COUNT))
+						.addAction(clearTimer)
 						.setDecisionPoint(new DecisionPoint(checkUserCount) {
 								@Override
 								public Object decideNextState(Object context){
+									GameSession session = (GameSession)context;
 									int userCount = condition.decide(context);
 									if (userCount == 0){
+										session.resetGame();
 										return GameStateKey.CREATE;
 									}
 									else if (userCount <= 1){
+										session.finishGame();
 										return GameStateKey.ONE_USER_WAITING;
 									}
 									else{ // more than one user, can start game
@@ -96,7 +101,12 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		
 		
 		stateMachine.addState(new GameState(GameStateKey.WAIT_FOR_START_GAME))
+						.addAction(startGame)
+						.addAction(setAlivePlayerCout)
 						.addAction(setStartGameTimer)
+						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
+						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
+						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.PLAY_USER_QUIT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.DEAL)				
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)
@@ -105,8 +115,8 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		
 		
 		stateMachine.addState(new GameState(GameStateKey.DEAL))
-						.addAction(startGame)
-						.addAction(setAlivePlayerCout)
+//						.addAction(startGame)
+//						.addAction(setAlivePlayerCout)
 						.addAction(setTotalBet)
 						.addAction(setAllPlayerLoseGameToFalse)
 						.addAction(notifyGameStartAndDealTimer)
@@ -276,10 +286,13 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		stateMachine.addState(new GameState(GameStateKey.SHOW_RESULT))
 						.addAction(setShowResultTimer)
 						.addAction(finishGame)
-						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
-						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)
-						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
-						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)			
+//						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
+//						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)
+//						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
+						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)	
+						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)
 						.addAction(clearTimer)

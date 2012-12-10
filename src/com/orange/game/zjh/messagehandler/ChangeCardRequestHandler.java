@@ -72,7 +72,7 @@ public class ChangeCardRequestHandler extends AbstractMessageHandler {
 					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
 					.setSessionId(session.getSessionId())
 					.setUserId(userId)
-					.setChangeCardRequest(request)
+					.setChangeCardResponse(changeCardResponse)
 					.build();
 			
 			NotificationUtils.broadcastNotification(session, userId, broadcastMessage);

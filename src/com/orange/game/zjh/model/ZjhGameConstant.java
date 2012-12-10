@@ -68,8 +68,8 @@ public class ZjhGameConstant {
 	// Single bet by rule type 
 	public static final int SINGLE_BET_BEGINER = 5;
 	public static final int SINGLE_BET_NORMAL = 5;
-	public static final int SINGLE_BET_DUAL = 50;
-	public static final int SINGLE_BET_RICH = 500;
+	public static final int SINGLE_BET_DUAL = 25;
+	public static final int SINGLE_BET_RICH = 25;
 
 
 	
