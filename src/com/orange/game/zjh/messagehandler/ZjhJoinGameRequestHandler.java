@@ -49,7 +49,7 @@ public class ZjhJoinGameRequestHandler extends JoinGameRequestHandler {
 			response = builder.setZjhGameState(state)
 									.build();
 			
-			ServerLog.info(session.getSessionId(), "!!!!!!!!!!!! JoinGameResponse = " + response);
+//			ServerLog.info(session.getSessionId(), "!!!!!!!!!!!! JoinGameResponse = " + response);
 			
 			return response;
 		   
