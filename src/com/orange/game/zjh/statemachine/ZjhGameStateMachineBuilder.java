@@ -101,8 +101,8 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		
 		
 		stateMachine.addState(new GameState(GameStateKey.WAIT_FOR_START_GAME))
-						.addAction(startGame)
-						.addAction(setAlivePlayerCout)
+//						.addAction(startGame)
+//						.addAction(setAlivePlayerCout)
 						.addAction(setStartGameTimer)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
@@ -115,8 +115,8 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		
 		
 		stateMachine.addState(new GameState(GameStateKey.DEAL))
-//						.addAction(startGame)
-//						.addAction(setAlivePlayerCout)
+						.addAction(startGame)
+						.addAction(setAlivePlayerCout)
 						.addAction(setTotalBet)
 						.addAction(setAllPlayerLoseGameToFalse)
 						.addAction(notifyGameStartAndDealTimer)
@@ -128,19 +128,6 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)  // 旁观者加入
 						.addAction(clearTimer);
 		
-//		stateMachine.addState(new GameState(GameStateKey.CHECK_USER_COUNT_DURING_GAME))
-//						.setDecisionPoint(new DecisionPoint(null) {
-//							@Override
-//							public Object decideNextState(Object context){
-//								ZjhGameSession session = (ZjhGameSession)context;
-//								int alivePlayerCount = session.getAlivePlayerCount();
-//								if ( alivePlayerCount == 1 )
-//									return GameStateKey.COMPLETE_GAME;
-//								else {
-//									return GameStateKey.SELECT_NEXT_PLAYER;
-//								}
-//							}
-//						});
 		
 		stateMachine.addState(new GameState(GameStateKey.SELECT_PLAYER_WAIT_TIMER))
 						.addAction(setSelectPlayerWaitTimer)
