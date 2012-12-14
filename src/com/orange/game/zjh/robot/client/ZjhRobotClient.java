@@ -18,6 +18,7 @@ import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CheckCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CompareCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.GameChatRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
 import com.orange.network.game.protocol.message.GameMessageProtos.ShowCardRequest;
 import com.orange.network.game.protocol.model.GameBasicProtos.PBGameUser;
@@ -40,6 +41,10 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	private static final int IDX_SHOW = 6;
 	
 	
+	private final static int IDX_CONTENT = 0;
+	private final static int IDX_CONTENTID = 1;
+	private final static int IDX_CONTNET_TYPE = 2;
+	
 	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId, userId, nickName);
 	
 	public ZjhRobotClient(User user, int sessionId, int index) {
@@ -58,6 +63,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 				robotIntelligence.introspectPokers(message.getGameStartNotificationRequest());
 				if ( robotIntelligence.canCheckCardNow()) {
 					scheduleCheckCard(10 + RandomUtils.nextInt(20));
+					sendChatIfNeeded();
 				}
 				break;
 			case NEXT_PLAYER_START_NOTIFICATION_REQUEST:
@@ -80,6 +86,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeBetMessage());
 						}
 						robotIntelligence.cleanDecision();
+						sendChatIfNeeded();
 					}
 				}
 				break;
@@ -245,6 +252,48 @@ public class ZjhRobotClient extends AbstractRobotClient {
 		};
 	}
 	
+	  private void sendChatIfNeeded() {
+		  if ( robotIntelligence.hasSetChat()) {
+				sendChat(robotIntelligence.getChatContent());
+				robotIntelligence.resetHasSetChat();
+			}
+	  }
+	
+     private void sendChat(final String[] content) {
+		
+		// index IDX_CONTENT(0) : content(only valid for TEXT)
+		// index IDX_CONTENTID(1) : content voiceId or expressionId, depent on contentType
+		// index IDX_CONTENT_TYPE(2) : contentType, TEXT or EXPRESSION
+		String chatContent = content[IDX_CONTENT];
+		String contentId = content[IDX_CONTENTID];
+		int contentType = Integer.parseInt(content[IDX_CONTNET_TYPE]);
+		
+		ServerLog.info(sessionId, "Robot "+nickName+" sends chat content: " + contentId);
+		
+		GameChatRequest request = null;
+		
+		GameChatRequest.Builder builder = GameChatRequest.newBuilder()
+				.setContentType(contentType) // 1: text, 2: expression
+				.setContent(chatContent); // will be ignored when contentType is 2
+		if ( content[IDX_CONTNET_TYPE].equals(ZjhRobotChatContent.ChatType.TEXT.id()) ) {
+				builder.setContentVoiceId(contentId);
+		} else {
+				builder.setExpressionId(contentId);
+		}
+		
+		request = builder.build();
+				
+		GameMessage message = GameMessage.newBuilder()
+			.setChatRequest(request)
+			.setMessageId(getClientIndex())
+			.setCommand(GameCommandType.CHAT_REQUEST)
+			.setUserId(userId)
+			.setSessionId(sessionId)
+			.build();
+		
+		ServerLog.info(sessionId, "<ZjhRobotChatContent.sendChat()>Robot "+nickName+ " sends "+message.getCommand());
+		send(message);		
+	}
 
 	@Override
 	public void resetPlayData(boolean robotWinThisGame) {
