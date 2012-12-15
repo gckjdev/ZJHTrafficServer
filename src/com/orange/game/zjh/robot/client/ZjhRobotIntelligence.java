@@ -309,7 +309,7 @@ public class ZjhRobotIntelligence {
 		if ( round > 2 ) {
 			showCard();
 		}
-		if ( (round > 8  && alivePlayerCount ==2) || round > 1 &&  playerCount > 2 && playerCount-alivePlayerCount >= 2 ) {
+		if ( (round > 8  && alivePlayerCount ==2) || (round > 1 &&  playerCount > 2 && playerCount-alivePlayerCount >= 2) ) {
 			// 只针对四，或五个人的情况
 			compareCard();
 			ServerLog.info(sessionId, "<flushCardDecision> " + nickName+" decides to compare card");
@@ -372,7 +372,7 @@ public class ZjhRobotIntelligence {
 		}
 		
 		if ( playerCount <= 3 ) {
-			if ( round > 5 && alivePlayerCount == 2 || RandomUtils.nextInt(2) == 0) {
+			if ( round > 5 && (alivePlayerCount == 2 || RandomUtils.nextInt(2) == 0) ) {
 				compareCard();
 				ServerLog.info(sessionId, "<pairCardDecision> " + nickName+" decides to compare card");
 			} else if ( !raiseBet && canRaiseBet() && round <= 2 + RandomUtils.nextInt(alivePlayerCount)){
@@ -412,7 +412,7 @@ public class ZjhRobotIntelligence {
 		
 		int highRankCardPos = IntegerUtil.forPosition(myPokerRankMask, 0x1FFF, 0, 0);
 		if ( highRankCardPos < 9) {
-			if ( round == 1 || random == 0 && betTimes < 3 + RandomUtils.nextInt(2)) {
+			if ( round == 1 || (random == 0 && betTimes < 3 + RandomUtils.nextInt(2))) {
 				decision[IDX_BET] = true;
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet, singleBet is " + singleBet
 						+ ", betTimes = " + betTimes);
@@ -428,7 +428,7 @@ public class ZjhRobotIntelligence {
 		}
 		else if ( myPokerRankMask < MEAN_POKER_RANK ) {
 			// 比均值牌大
-			if ( round >= 5 && betRaisedByOther || playerCount - alivePlayerCount >= 1) {
+			if ( round >= 5 && (betRaisedByOther || playerCount - alivePlayerCount >= 1)) {
 				compareCard();
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to compare card(2)");
 			} else {
@@ -438,7 +438,7 @@ public class ZjhRobotIntelligence {
 		}
 		else {
 			// 小于均值牌，最大牌又大于9的情况
-			if ( betTimes < (4 - playerCount) + 4 || (compareWin && RandomUtils.nextInt(2) == 0) || round == 1) {
+			if ( round == 1 || betTimes < (4 - playerCount) + 4 || (compareWin && RandomUtils.nextInt(2) == 0) ) {
 				decision[IDX_BET] = true;
 				betTimes++;
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to follow bet(3), singleBet is " + singleBet);
