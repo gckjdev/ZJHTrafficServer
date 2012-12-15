@@ -428,7 +428,7 @@ public class ZjhRobotIntelligence {
 		}
 		else if ( myPokerRankMask < MEAN_POKER_RANK ) {
 			// 比均值牌大
-			if ( round >= 5 && (betRaisedByOther || playerCount - alivePlayerCount >= 1)) {
+			if ( ( round >= 5 && (betRaisedByOther || playerCount - alivePlayerCount >= 1) ) || round > 7 - playerCount) {
 				compareCard();
 				ServerLog.info(sessionId, "<highCardDecision> " + nickName+" decides to compare card(2)");
 			} else {
