@@ -13,7 +13,8 @@ public class ZjhGameSessionManager extends GameSessionManager {
 	public GameSession createSession(int sessionId, String name,
 			String password, boolean createByUser, String createBy,
 			int ruleType, int maxPlayerCount, int testEnable) {
-		return new ZjhGameSession(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable, getInitSingleBet(ruleType));
+		return new ZjhGameSession(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable,
+				getInitSingleBet(ruleType), getMaximumBet(ruleType));
 	}
 
 
@@ -49,6 +50,22 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		}
    }
 	
+   public int getMaximumBet(int ruleType) {
+	   
+	    switch (ruleType) {
+				case PBZJHRuleType.BEGINER_VALUE:
+					return ZjhGameConstant.MAX_BET_BEGINER;
+				case PBZJHRuleType.NORMAL_VALUE:
+					return ZjhGameConstant.MAX_BET_NORMAL;
+				case PBZJHRuleType.DUAL_VALUE:
+					return ZjhGameConstant.MAX_BET_DUAL;
+				case PBZJHRuleType.RICH_VALUE:
+					return ZjhGameConstant.MAX_BET_RICH;
+				default:
+					return 200;
+	    }
+    }
+   
 	@Override
 	// On: 1, Off:0[default]
 	public int getTestEnable() {

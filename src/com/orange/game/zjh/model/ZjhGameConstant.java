@@ -63,13 +63,20 @@ public class ZjhGameConstant {
 
    // For comparing card
 	public final static double WINNER_TAX_RATE = 0.1;
-	public static final int COMPARE_CHANLLEGER_LOSS = 200;
+	public static final int COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR = 4;
 
 	// Single bet by rule type 
 	public static final int SINGLE_BET_BEGINER = 5;
 	public static final int SINGLE_BET_NORMAL = 5;
 	public static final int SINGLE_BET_DUAL = 10;
 	public static final int SINGLE_BET_RICH = 25;
+
+	// Maxinum bet by rule type
+	public static final int MAX_BET_BEGINER = 50;
+	public static final int MAX_BET_NORMAL = 50;
+	public static final int MAX_BET_DUAL = 100;
+	public static final int MAX_BET_RICH = 250;
+
 
 
 	

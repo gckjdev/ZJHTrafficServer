@@ -94,11 +94,12 @@ public class ZjhGameSession extends GameSession {
 	private ZjhGameTestData test = ZjhGameTestData.getInstance();
 	
 	private final int  initSingleBet ;
+	private final int maximumBet ;
 	private ChangeCardResponse response = null;
 	
 	
 	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, 
-			int ruleType, int maxPlayerCount, int testEnable, int initSingleBet) {
+			int ruleType, int maxPlayerCount, int testEnable, int initSingleBet, int maximumBet) {
 		super(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable);
 		// init state
 		this.currentState = ZjhGameStateMachineBuilder.INIT_STATE;
@@ -107,6 +108,7 @@ public class ZjhGameSession extends GameSession {
 			pokerPool[i] = i;
 		}
 		this.singleBet = this.initSingleBet = initSingleBet;
+		this.maximumBet = maximumBet;
 	}
 	
 
@@ -595,15 +597,15 @@ public class ZjhGameSession extends GameSession {
 		
 		// 比牌结束！
 		
-		// 如果发起比牌者(ID为userId的玩家)输了,要额外惩罚,扣除一定金币
+		// 如果发起比牌者(ID为userId的玩家)输了,要额外惩罚,扣除一定金币： 该场最大筹码数×4
 		int compareChanllengerLoss = 0;
 		if ( userId.equals(loser) ) {
-			compareChanllengerLoss = ZjhGameConstant.COMPARE_CHANLLEGER_LOSS;
+			compareChanllengerLoss = maximumBet * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR;
 			dbService.executeDBRequest(sessionId, new Runnable() {
 				@Override
 				public void run() {
 					MongoDBClient dbClient = dbService.getMongoDBClient(sessionId);
-					UserManager.deductAccount(dbClient, userId, ZjhGameConstant.COMPARE_CHANLLEGER_LOSS, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
+					UserManager.deductAccount(dbClient, userId, maximumBet * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
 				}
 			});
 			ServerLog.info(sessionId, "<compareCard> User " + userId + " chanllenges to compare card, but fails, so gets " +
