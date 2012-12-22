@@ -23,6 +23,7 @@ import com.orange.network.game.protocol.message.GameMessageProtos.GameStartNotif
 import com.orange.network.game.protocol.model.GameBasicProtos.PBUserResult;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBPoker;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHPoker;
+import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHRuleType;
 import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 import static com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHCardType;
@@ -32,7 +33,39 @@ import static com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHCardTy
 public class ZjhRobotIntelligence {
 	
 	private ZjhRobotChatContent chatContent = ZjhRobotChatContent.getInstance();
-	private static final int CHIPS[] = {5, 10, 25, 50};
+	private enum Chips {
+		Normal(PBZJHRuleType.NORMAL_VALUE) {
+			int[] chips() { 
+				int[] results = {5,10,25,50};
+				return results;
+			}
+		},
+		Rich(PBZJHRuleType.RICH_VALUE) {
+			int[] chips() { 
+				int[] results = {25,50,100,250};
+				return results;
+			}
+		},
+		Dual(PBZJHRuleType.DUAL_VALUE) {
+				int[] chips() { 
+					int[] results = {10,25,50,100};
+					return results;
+				}
+		};
+		private final int ruleType;
+		private Chips(int ruleType) { this.ruleType = ruleType;}
+		abstract int[] chips();
+		
+		static Chips valueOf(int ruleType) { 
+		    switch (ruleType) {
+				case PBZJHRuleType.NORMAL_VALUE: return Normal;
+				case PBZJHRuleType.RICH_VALUE: return Rich;
+				case PBZJHRuleType.DUAL_VALUE: return Dual;
+				default: return null;
+			}
+		}
+	}
+	private final int[] CHIPS;
 	
 	private int playerCount;
 	private int alivePlayerCount;
@@ -41,6 +74,8 @@ public class ZjhRobotIntelligence {
 	private int sessionId;
 	private String nickName;
 	private ZjhGameSession session;
+	private int ruleType;
+	
 	private int myCardType;
 	private List<PBPoker> myPokers;
 	private int myPokerRankMask;
@@ -100,13 +135,15 @@ public class ZjhRobotIntelligence {
 	private String[ ] whatToChat = {"","", ""};
 	private boolean setChat = false;
 	
-	public ZjhRobotIntelligence(int sessionId, String userId, String nickName) {
+	public ZjhRobotIntelligence(int sessionId, String userId, String nickName, int ruleType) {
 		this.mySelfId = userId;
 		this.sessionId = sessionId;
 		this.nickName = nickName;
 		this.session = (ZjhGameSession) GameEventExecutor.getInstance().getSessionManager().findSessionById(sessionId);
 		this.singleBet = session.getSingleBet();
 		this.oldSingleBet = this.singleBet;
+		this.ruleType = ruleType;
+		this.CHIPS = Chips.valueOf(ruleType).chips();
 	}
 
 

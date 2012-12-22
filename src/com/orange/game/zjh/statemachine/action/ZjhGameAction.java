@@ -225,7 +225,7 @@ public class ZjhGameAction{
 			
 			// write game result(playtimes, wintime, losetimes, etc) into db
 			ServerLog.info(session.getSessionId(), "<completeGame> userResult is " +userResult.toString());
-			service.writeAllUserGameResultIntoDB(session, DBConstants.GAME_ID_ZJH);
+			service.writeAllUserGameResultIntoDB(session, DBConstants.GAME_ID_ZHAJINHUA);
 			
 			// charge  coins for winner
 			service.writeUserCoinsIntoDB(session.getSessionId(), winnerResult, DBConstants.C_CHARGE_SOURCE_ZJH_RESULTS);
