@@ -6,7 +6,7 @@ import com.orange.game.constants.DBConstants;
 
 public class ZjhGameConstant {
 	
-	public static final String GAME_ID_ZJH = DBConstants.GAME_ID_ZJH;
+	public static final String GAME_ID_ZJH = DBConstants.GAME_ID_ZHAJINHUA;
 	
 	public static final int MAX_PLAYER_PER_SESSION = 5;
 	

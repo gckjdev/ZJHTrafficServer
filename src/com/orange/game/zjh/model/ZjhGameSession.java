@@ -54,7 +54,7 @@ public class ZjhGameSession extends GameSession {
 	 
 	// 每个玩家的扑克
 	private Map<String, List<PBPoker>> userPokersMap = new ConcurrentHashMap<String, List<PBPoker>>();
-	// 每个玩家的牌型数据结构
+	// 每个玩家的牌型
 	private Map<String, PBZJHCardType> cardTypeMap = new ConcurrentHashMap<String, PBZJHCardType>();
 	// 每个玩家的牌面值和花色值信息, 与userPokersMap有重复。方便比牌时操作。
 	private Map<String, Integer> rankMaskMap = new ConcurrentHashMap<String, Integer>();
@@ -97,6 +97,7 @@ public class ZjhGameSession extends GameSession {
 	private final int maximumBet ;
 	private ChangeCardResponse response = null;
 	
+	private static final String ROBOT_UID_PREFIX = "9999";
 	
 	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, 
 			int ruleType, int maxPlayerCount, int testEnable, int initSingleBet, int maximumBet) {
@@ -248,7 +249,7 @@ public class ZjhGameSession extends GameSession {
 		long faceStatusMask = ZjhGameConstant.FACE_STATUS_MASK;
 		boolean foundPair = false;
 		
-		//如果已经存有该玩家的状态，要清空; 没有此操作也不影响。
+		//如果已经存有该玩家的状态，要清空; 没有的话, 此操作也无副作用。
 		rankMaskMap.remove(userId);
 		suitMaskMap.remove(userId);
 		faceStatusMap.remove(userId);
@@ -599,7 +600,7 @@ public class ZjhGameSession extends GameSession {
 		
 		// 如果发起比牌者(ID为userId的玩家)输了,要额外惩罚,扣除一定金币： 该场最大筹码数×4
 		int compareChanllengerLoss = 0;
-		if ( userId.equals(loser) ) {
+		if ( userId.equals(loser) && ! userId.startsWith(ROBOT_UID_PREFIX)) {
 			compareChanllengerLoss = maximumBet * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR;
 			dbService.executeDBRequest(sessionId, new Runnable() {
 				@Override
