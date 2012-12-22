@@ -32,14 +32,6 @@ public class ZjhGameServerHandler extends GameServerHandler {
 		GameMessage message = (GameMessage)messageEvent.getMessage();
 		GameSession session;
 
-//		// 当房间不是在玩的状态时, 不再处理消息.
-//		// 比如非当前轮玩家弃牌导致游戏结束,然后当前轮玩家投注,此时将不再受理
-//		if ( message.hasSessionId()) {
-//			session = GameEventExecutor.getInstance().getSessionManager().findSessionById((int)message.getSessionId());
-//			if ( session != null && !session.isGamePlaying()) {
-//				return null;
-//			}
-//		}
 		
 		switch (message.getCommand()){
 			case CREATE_ROOM_REQUEST:

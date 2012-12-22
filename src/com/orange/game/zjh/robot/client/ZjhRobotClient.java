@@ -13,6 +13,7 @@ import com.orange.common.log.ServerLog;
 import com.orange.game.constants.DBConstants;
 import com.orange.game.model.dao.User;
 import com.orange.game.traffic.robot.client.AbstractRobotClient;
+import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.CheckCardRequest;
@@ -45,7 +46,8 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	private final static int IDX_CONTENTID = 1;
 	private final static int IDX_CONTNET_TYPE = 2;
 	
-	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId, userId, nickName);
+	private ZjhRobotIntelligence robotIntelligence = new ZjhRobotIntelligence(sessionId, userId, nickName, 
+								GameEventExecutor.getInstance().getSessionManager().getRuleType());
 	
 	public ZjhRobotClient(User user, int sessionId, int index) {
 		super(user, sessionId,index);
@@ -310,7 +312,7 @@ public class ZjhRobotClient extends AbstractRobotClient {
 	
 	@Override
 	public String getGameId() {
-		return DBConstants.GAME_ID_ZJH;
+		return DBConstants.GAME_ID_ZHAJINHUA;
 	}		
 	
 	@Override
