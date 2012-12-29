@@ -54,7 +54,7 @@ public class ZjhGameSession extends GameSession {
 	 
 	// 每个玩家的扑克
 	private Map<String, List<PBPoker>> userPokersMap = new ConcurrentHashMap<String, List<PBPoker>>();
-	// 每个玩家的牌型数据结构
+	// 每个玩家的牌型
 	private Map<String, PBZJHCardType> cardTypeMap = new ConcurrentHashMap<String, PBZJHCardType>();
 	// 每个玩家的牌面值和花色值信息, 与userPokersMap有重复。方便比牌时操作。
 	private Map<String, Integer> rankMaskMap = new ConcurrentHashMap<String, Integer>();
