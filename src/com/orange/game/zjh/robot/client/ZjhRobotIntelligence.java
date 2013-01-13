@@ -204,8 +204,12 @@ public class ZjhRobotIntelligence {
 		if (!hasCheckedCard)
 			decision[IDX_CHECK] = true;
 
+		List<String> toCompareUserIdList = session.getComprableUserIdList(mySelfId);
+		if ( toCompareUserIdList == null ) {
+			return;
+		}
+		toCompareUserId = toCompareUserIdList.get(0);
 		decision[IDX_COMPARE] = true;
-		toCompareUserId = session.getComprableUserIdList(mySelfId).get(0);
 		
 		if (myCardType < PBZJHCardType.PAIR_VALUE ) {
 			if ( !setChat &&  RandomUtils.nextInt(6) == 0 ) {

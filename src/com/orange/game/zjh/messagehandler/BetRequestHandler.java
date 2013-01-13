@@ -37,7 +37,7 @@ public class BetRequestHandler extends AbstractMessageHandler {
 			logger.info("<BetRequestHandler> Session is null !!!");
 			resultCode = GameResultCode.ERROR_NO_SESSION_AVAILABLE;
 		}
-		else if (userId == null){
+		else if (userId == null || session.getCurrentPlayUserId() == null){
 			logger.info("<BetRequestHandler> UserId is null !!!");
 			resultCode = GameResultCode.ERROR_USERID_NULL;
 		}

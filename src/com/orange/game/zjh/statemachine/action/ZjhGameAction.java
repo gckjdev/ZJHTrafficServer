@@ -3,10 +3,13 @@ package com.orange.game.zjh.statemachine.action;
 import java.util.Collection;
 import java.util.List;
 
+import org.jboss.netty.channel.Channel;
+
 import com.orange.common.log.ServerLog;
 import com.orange.common.statemachine.Action;
 import com.orange.game.constants.DBConstants;
 import com.orange.game.traffic.model.dao.GameSession;
+import com.orange.game.traffic.model.dao.GameUser;
 import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.game.traffic.server.HandlerUtils;
@@ -96,16 +99,19 @@ public class ZjhGameAction{
 			session.foldCard(userId);
 			
 			// send response
-			FoldCardResponse foldCardResponse = FoldCardResponse.newBuilder().build();
-			GameMessage response = GameMessage.newBuilder()
+			GameUser gameUser = GameUserManager.getInstance().findUserById(userId);
+			if ( gameUser != null ) {
+				FoldCardResponse foldCardResponse = FoldCardResponse.newBuilder().build();
+				GameMessage response = GameMessage.newBuilder()
 					.setCommand(GameCommandType.FOLD_CARD_RESPONSE)
 					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
 					.setResultCode(GameResultCode.SUCCESS)
 					.setUserId(userId)
 					.setFoldCardResponse(foldCardResponse)
 					.build();
-			org.jboss.netty.channel.Channel channel = GameUserManager.getInstance().findUserById(userId).getChannel();
-			HandlerUtils.sendMessage(response, channel);
+				Channel channel = gameUser.getChannel();
+			   HandlerUtils.sendMessage(response, channel);
+			}
 			
 			// broadcast to others
 			FoldCardRequest request = FoldCardRequest.newBuilder().build();

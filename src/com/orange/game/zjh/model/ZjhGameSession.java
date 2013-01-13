@@ -183,8 +183,8 @@ public class ZjhGameSession extends GameSession {
 			//检查牌类型，存起备用
 			PBZJHCardType cardType = introspectCardType(pokers,userId);
 			cardTypeMap.put(userId, cardType);
-			ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: \n" + pokers.toString()
-					+",\n cardType is " + cardType);
+//			ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: \n" + pokers.toString()
+//					+",\n cardType is " + cardType);
 			
 			// 一开局，每个玩家的总注等于当前房间单注
 			totalBetMap.put(userId, singleBet);
@@ -228,7 +228,7 @@ public class ZjhGameSession extends GameSession {
 			return test.dispatchPokersForTest(SPECIAL);
 		}
 		
-		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
+//		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
 		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
 			pbPoker = getOneCardFromPokerPool();
 			result.add(pbPoker);		
@@ -450,7 +450,9 @@ public class ZjhGameSession extends GameSession {
 				
 				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
 				GameUser user = GameUserManager.getInstance().findUserById(userId);
-				user.setLoseGame(true);
+				if ( user != null ) {
+					user.setLoseGame(true);
+				}
 				
 				// 弃牌后表示该玩家已经输，扣除其金币, 更新游戏次数数据
 				boolean win = false;
@@ -688,7 +690,7 @@ public class ZjhGameSession extends GameSession {
 						.build();
 			
 		int userPlayInfo = userPlayInfoMask.get(userId);
-		ServerLog.info(sessionId, "<updateUserPlayInfo>" + userId +"'s UserPlayInfo is " + Integer.toBinaryString(userPlayInfo));
+//		ServerLog.info(sessionId, "<updateUserPlayInfo>" + userId +"'s UserPlayInfo is " + Integer.toBinaryString(userPlayInfo));
 		int totalBet = totalBetMap.get(userId);
 		PBZJHUserAction lastAction = lastAction(userPlayInfo);
 		boolean isAutoBet = 
@@ -714,7 +716,7 @@ public class ZjhGameSession extends GameSession {
 			   .setAlreadCompareLose(compareLosed)
 				.build();
 		
-		ServerLog.info(sessionId, " PBZJHUserPlayInfo for " + userId + " is : " + pbZjhUserPlayInfo.toString());
+//		ServerLog.info(sessionId, " PBZJHUserPlayInfo for " + userId + " is : " + pbZjhUserPlayInfo.toString());
 		
 		return pbZjhUserPlayInfo;
 	}
@@ -792,7 +794,7 @@ public class ZjhGameSession extends GameSession {
 	}
 
 
-	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame
+	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame，把其isplaying设为false
 	public void updateQuitPlayerInfo(String userId) {
 		
 		if ( !isGamePlaying() ) {
@@ -806,8 +808,13 @@ public class ZjhGameSession extends GameSession {
 				alivePlayerCount.decrementAndGet();
 		}
 		
-		// 因为是在游戏开始发牌阶段才把userId加入userPlayInfoMask,
-		// 如果是在开始到发牌之间退出，则不用进行操作。
+		// 设其isplaying为false
+		GameUser user = GameUserManager.getInstance().findUserById(userId);
+		if ( user != null ) {
+			user.setPlaying(false);
+		}
+		
+		
 		if ( userPlayInfoMask.containsKey(userId)) {
 			int playInfoMask = userPlayInfoMask.get(userId);
 			// 中途退出当做是输了游戏, 权且把其设为COMPARE_LOSE
