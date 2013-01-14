@@ -418,6 +418,10 @@ public class ZjhGameSession extends GameSession {
 				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has checked card !!! Needn't recheck ");
 				return GameResultCode.ERROR_ALREADY_CHECK_CARD;
 			} 
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has folded card !!! Can't check ");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
 			else {
 				int oldValue = userPlayInfoMask.get(userId);
 				oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
@@ -477,6 +481,11 @@ public class ZjhGameSession extends GameSession {
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
 		} 
 		else {
+			int userInfo = userPlayInfoMask.get(userId);
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.showCard> "+ userId+ "has folded card !!! Can't show card ");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
 			// 亮牌.
 			long faceStatusMask = faceStatusMap.get(userId);
 			for ( Integer showPokerId : pokerIds ) {
@@ -840,6 +849,12 @@ public class ZjhGameSession extends GameSession {
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
 		} 
 		else {
+			int userInfo = userPlayInfoMask.get(userId);
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has folded card !!! Can't check ");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
+			
 			List<PBPoker> pokers = userPokersMap.get(userId);
 			
 			PBPoker newPoker = getOneCardFromPokerPool();
