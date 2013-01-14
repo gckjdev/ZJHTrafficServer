@@ -633,8 +633,16 @@ public class ZjhGameSession extends GameSession {
 		int loserOldInfo = userPlayInfoMask.get(loser);
 		loserOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
 		userPlayInfoMask.put(loser, loserOldInfo | USER_INFO_ACTION_COMPARE_CARD | USER_INFO_COMPARE_LOSE );
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> before "+ loser 
+				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
 		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
-		GameUserManager.getInstance().findUserById(loser).setLoseGame(true); //设玩家游戏状态为loseGame为true
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> after "+ loser 
+				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
+		GameUser loserUser = findUser(loser);
+		if ( loserUser != null ) {
+			loserUser.setLoseGame(true); //设玩家游戏状态为loseGame为true
+		}
+		
 		// 并马上扣除其赌注
 		PBUserResult result = gameResultService.makePBUserResult(loser, false, -1 * totalBetMap.get(loser));
 		gameResultService.writeUserCoinsIntoDB(sessionId, result, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);

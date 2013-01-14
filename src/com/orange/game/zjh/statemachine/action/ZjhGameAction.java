@@ -133,6 +133,7 @@ public class ZjhGameAction{
 			ZjhGameSession session = (ZjhGameSession)context;
 			int playUserCount = session.getPlayUserCount();
 			session.setAlivePlayerCount(playUserCount);
+			ServerLog.info(session.getSessionId(), "Set alivePlayerCount to " + playUserCount);
 		}
 
 	}
