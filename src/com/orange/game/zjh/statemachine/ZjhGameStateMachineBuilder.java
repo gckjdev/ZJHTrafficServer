@@ -242,8 +242,9 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 							@Override
 							public Object decideNextState(Object context){					
 								ZjhGameSession session = (ZjhGameSession)context;
-								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount == 1 )
+								int alivePlayerCount = session.getAlivePlayerCount(); // 还没输的人
+								int gameUserCount = session.getPlayUserCount(); // 所有在玩的人
+								if ( alivePlayerCount == 1 || gameUserCount == 1)
 									return GameStateKey.COMPLETE_GAME;	
 								else
 									return GameStateKey.SELECT_NEXT_PLAYER;
