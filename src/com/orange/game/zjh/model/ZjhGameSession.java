@@ -138,7 +138,7 @@ public class ZjhGameSession extends GameSession {
 
 	
 	public int getAlivePlayerCount() {
-		ServerLog.info(sessionId, "alivePlayerCount= "+ alivePlayerCount);
+		ServerLog.info(sessionId, "<ZjhGameSession>alivePlayerCount= "+ alivePlayerCount);
 		return alivePlayerCount.get();
 	}
 
@@ -453,7 +453,7 @@ public class ZjhGameSession extends GameSession {
 				alivePlayerCount.decrementAndGet(); // he/she is game over
 				
 				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
-				GameUser user = GameUserManager.getInstance().findUserById(userId);
+				GameUser user = findUser(userId); // 不能用GameUserManager.getInstance().findUserById()这个方法
 				if ( user != null ) {
 					user.setLoseGame(true);
 				}
@@ -638,8 +638,10 @@ public class ZjhGameSession extends GameSession {
 		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
 		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> after "+ loser 
 				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
-		GameUser loserUser = findUser(loser);
+		GameUser loserUser = findUser(loser);// 不能用GameUserManager.getInstance().findUserById()这个方法
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> loserUser = " + (loserUser == null ? null : loserUser) );
 		if ( loserUser != null ) {
+			ServerLog.info(sessionId, "<ZjhGameSession.compareCard> Set " + userId + " loseGame status to true.");
 			loserUser.setLoseGame(true); //设玩家游戏状态为loseGame为true
 		}
 		
@@ -820,15 +822,14 @@ public class ZjhGameSession extends GameSession {
 	
 		// 如果是游戏玩家并且游戏状态为未输，需要把alivePlayerCount递减；旁观玩家则不需要
 		// 如果已经是输了游戏的也不需要递减（因为之前已经递减了）
-		GameUser gameUser = GameUserManager.getInstance().findUserById(userId);
+		GameUser gameUser = findUser(userId); // 不能用GameUserManager.getInstance().findUserById()这个方法
 		if ( gameUser != null && gameUser.isPlaying() && ! gameUser.hasLosedGame() ) {
 				alivePlayerCount.decrementAndGet();
 		}
 		
 		// 设其isplaying为false
-		GameUser user = GameUserManager.getInstance().findUserById(userId);
-		if ( user != null ) {
-			user.setPlaying(false);
+		if ( gameUser != null ) {
+			gameUser.setPlaying(false);
 		}
 		
 		
