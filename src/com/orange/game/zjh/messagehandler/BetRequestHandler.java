@@ -32,7 +32,6 @@ public class BetRequestHandler extends AbstractMessageHandler {
 		String userId = message.getUserId();
 		BetRequest request = message.getBetRequest();
 		
-//		ServerLog.info(session.getSessionId(), "<betRequest>request is " + request.toString());
 		if (session == null){
 			logger.info("<BetRequestHandler> Session is null !!!");
 			resultCode = GameResultCode.ERROR_NO_SESSION_AVAILABLE;

@@ -95,6 +95,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addAction(prepareRobot)
 						.addTransition(GameCommandType.LOCAL_NEW_USER_JOIN, GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
+						.addEmptyTransition(GameCommandType.LOCAL_TIME_OUT)
 						.addAction(clearTimer)
 						.addAction(clearRobotTimer);				
 		
@@ -193,6 +194,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						 }); 
 		
 		stateMachine.addState(new GameState(GameStateKey.TIMEOUT_FOLD_CARD))
+						.addAction(incUserZoombieTimeOut)
 						.addAction(autoFoldCard)
 						.setDecisionPoint(new DecisionPoint(null){
 							@Override
@@ -271,18 +273,17 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						});
 	
 		
+		
 		stateMachine.addState(new GameState(GameStateKey.SHOW_RESULT))
 						.addAction(setShowResultTimer)
 						.addAction(finishGame)
-//						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
-//						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)
-//						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)	
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)
+						.addAction(kickZoombieUser)
 						.addAction(clearTimer)
 						.addAction(restartGame);
 	

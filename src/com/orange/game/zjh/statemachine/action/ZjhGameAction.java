@@ -259,6 +259,8 @@ public class ZjhGameAction{
 			GameMessage message = builder.build();
 			ServerLog.info(session.getSessionId(), "send game over="+message.toString());
 			NotificationUtils.broadcastNotification(session, null, message);
+			
+			
 		}
 
 	}
