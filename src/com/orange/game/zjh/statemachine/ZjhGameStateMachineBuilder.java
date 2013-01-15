@@ -193,6 +193,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						 }); 
 		
 		stateMachine.addState(new GameState(GameStateKey.TIMEOUT_FOLD_CARD))
+						.addAction(incUserZoombieTimeOut)
 						.addAction(autoFoldCard)
 						.setDecisionPoint(new DecisionPoint(null){
 							@Override
@@ -242,8 +243,9 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 							@Override
 							public Object decideNextState(Object context){					
 								ZjhGameSession session = (ZjhGameSession)context;
-								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount == 1 )
+								int alivePlayerCount = session.getAlivePlayerCount(); // 还没输的人
+								int gameUserCount = session.getPlayUserCount(); // 所有在玩的人
+								if ( alivePlayerCount == 1 || gameUserCount == 1)
 									return GameStateKey.COMPLETE_GAME;	
 								else
 									return GameStateKey.SELECT_NEXT_PLAYER;
@@ -270,18 +272,17 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						});
 	
 		
+		
 		stateMachine.addState(new GameState(GameStateKey.SHOW_RESULT))
 						.addAction(setShowResultTimer)
 						.addAction(finishGame)
-//						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)
-//						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)
-//						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)	
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)
+						.addAction(kickZoombieUser)
 						.addAction(clearTimer)
 						.addAction(restartGame);
 	

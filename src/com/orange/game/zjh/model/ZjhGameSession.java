@@ -183,8 +183,8 @@ public class ZjhGameSession extends GameSession {
 			//检查牌类型，存起备用
 			PBZJHCardType cardType = introspectCardType(pokers,userId);
 			cardTypeMap.put(userId, cardType);
-			ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: \n" + pokers.toString()
-					+",\n cardType is " + cardType);
+//			ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: \n" + pokers.toString()
+//					+",\n cardType is " + cardType);
 			
 			// 一开局，每个玩家的总注等于当前房间单注
 			totalBetMap.put(userId, singleBet);
@@ -228,7 +228,7 @@ public class ZjhGameSession extends GameSession {
 			return test.dispatchPokersForTest(SPECIAL);
 		}
 		
-		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
+//		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
 		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
 			pbPoker = getOneCardFromPokerPool();
 			result.add(pbPoker);		
@@ -418,6 +418,10 @@ public class ZjhGameSession extends GameSession {
 				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has checked card !!! Needn't recheck ");
 				return GameResultCode.ERROR_ALREADY_CHECK_CARD;
 			} 
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has folded card !!! Can't check ");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
 			else {
 				int oldValue = userPlayInfoMask.get(userId);
 				oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
@@ -450,7 +454,9 @@ public class ZjhGameSession extends GameSession {
 				
 				// 把玩家loseGame状态设为true，以免在selectPlayUser时再被选择到(弃牌后该玩家游戏结束)。
 				GameUser user = GameUserManager.getInstance().findUserById(userId);
-				user.setLoseGame(true);
+				if ( user != null ) {
+					user.setLoseGame(true);
+				}
 				
 				// 弃牌后表示该玩家已经输，扣除其金币, 更新游戏次数数据
 				boolean win = false;
@@ -475,6 +481,11 @@ public class ZjhGameSession extends GameSession {
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
 		} 
 		else {
+			int userInfo = userPlayInfoMask.get(userId);
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.showCard> "+ userId+ "has folded card !!! Can't show card ");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
 			// 亮牌.
 			long faceStatusMask = faceStatusMap.get(userId);
 			for ( Integer showPokerId : pokerIds ) {
@@ -622,8 +633,16 @@ public class ZjhGameSession extends GameSession {
 		int loserOldInfo = userPlayInfoMask.get(loser);
 		loserOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
 		userPlayInfoMask.put(loser, loserOldInfo | USER_INFO_ACTION_COMPARE_CARD | USER_INFO_COMPARE_LOSE );
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> before "+ loser 
+				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
 		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
-		GameUserManager.getInstance().findUserById(loser).setLoseGame(true); //设玩家游戏状态为loseGame为true
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> after "+ loser 
+				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
+		GameUser loserUser = findUser(loser);
+		if ( loserUser != null ) {
+			loserUser.setLoseGame(true); //设玩家游戏状态为loseGame为true
+		}
+		
 		// 并马上扣除其赌注
 		PBUserResult result = gameResultService.makePBUserResult(loser, false, -1 * totalBetMap.get(loser));
 		gameResultService.writeUserCoinsIntoDB(sessionId, result, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
@@ -688,7 +707,7 @@ public class ZjhGameSession extends GameSession {
 						.build();
 			
 		int userPlayInfo = userPlayInfoMask.get(userId);
-		ServerLog.info(sessionId, "<updateUserPlayInfo>" + userId +"'s UserPlayInfo is " + Integer.toBinaryString(userPlayInfo));
+//		ServerLog.info(sessionId, "<updateUserPlayInfo>" + userId +"'s UserPlayInfo is " + Integer.toBinaryString(userPlayInfo));
 		int totalBet = totalBetMap.get(userId);
 		PBZJHUserAction lastAction = lastAction(userPlayInfo);
 		boolean isAutoBet = 
@@ -714,7 +733,7 @@ public class ZjhGameSession extends GameSession {
 			   .setAlreadCompareLose(compareLosed)
 				.build();
 		
-		ServerLog.info(sessionId, " PBZJHUserPlayInfo for " + userId + " is : " + pbZjhUserPlayInfo.toString());
+//		ServerLog.info(sessionId, " PBZJHUserPlayInfo for " + userId + " is : " + pbZjhUserPlayInfo.toString());
 		
 		return pbZjhUserPlayInfo;
 	}
@@ -792,7 +811,7 @@ public class ZjhGameSession extends GameSession {
 	}
 
 
-	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame
+	// 当玩家中途退出时（指未完成游戏），把其游戏状态设为loseGame，把其isplaying设为false
 	public void updateQuitPlayerInfo(String userId) {
 		
 		if ( !isGamePlaying() ) {
@@ -806,8 +825,13 @@ public class ZjhGameSession extends GameSession {
 				alivePlayerCount.decrementAndGet();
 		}
 		
-		// 因为是在游戏开始发牌阶段才把userId加入userPlayInfoMask,
-		// 如果是在开始到发牌之间退出，则不用进行操作。
+		// 设其isplaying为false
+		GameUser user = GameUserManager.getInstance().findUserById(userId);
+		if ( user != null ) {
+			user.setPlaying(false);
+		}
+		
+		
 		if ( userPlayInfoMask.containsKey(userId)) {
 			int playInfoMask = userPlayInfoMask.get(userId);
 			// 中途退出当做是输了游戏, 权且把其设为COMPARE_LOSE
@@ -833,6 +857,12 @@ public class ZjhGameSession extends GameSession {
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
 		} 
 		else {
+			int userInfo = userPlayInfoMask.get(userId);
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has folded card !!! Can't check ");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
+			
 			List<PBPoker> pokers = userPokersMap.get(userId);
 			
 			PBPoker newPoker = getOneCardFromPokerPool();
