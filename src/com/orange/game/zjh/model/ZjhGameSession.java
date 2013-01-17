@@ -19,7 +19,6 @@ import com.orange.game.constants.DBConstants;
 import com.orange.game.model.manager.UserManager;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.model.dao.GameUser;
-import com.orange.game.traffic.model.manager.GameUserManager;
 import com.orange.game.traffic.service.UserGameResultService;
 import com.orange.game.zjh.statemachine.ZjhGameStateMachineBuilder;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
@@ -149,8 +148,6 @@ public class ZjhGameSession extends GameSession {
 
 
 	public int getSingleBet() {
-//		TODO : by ruleType
-//		int ruleType = getRuleType();
 		return singleBet;
 	}
 	

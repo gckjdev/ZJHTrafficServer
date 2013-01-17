@@ -73,7 +73,8 @@ public class CheckCardRequestHandler extends AbstractMessageHandler {
 			
 			// Player can check card anytime, so need to check is it my turn to
 			// decide whether to fire the event to make the state machine transit
-			if ( session.getCurrentPlayUserId().equals(userId)) { 
+			String currentPlayUserId = session.getCurrentPlayUserId();
+			if ( currentPlayUserId != null && currentPlayUserId.equals(userId)) { 
 				// Fire event
 				GameEventExecutor.getInstance().fireAndDispatchEvent(GameCommandType.LOCAL_CHECK_CARD, session.getSessionId(), userId);
 			}
