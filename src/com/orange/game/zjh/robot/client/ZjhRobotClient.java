@@ -75,17 +75,17 @@ public class ZjhRobotClient extends AbstractRobotClient {
 							scheduleCheckCard(1);
 						}
 						if ( robotIntelligence.decision[IDX_SHOW] ) {
-							scheduleSendMessage(3, makeShowCardMessage());
+							scheduleSendMessage(2, makeShowCardMessage());
 						}
 						if ( robotIntelligence.decision[IDX_BET] || robotIntelligence.decision[IDX_RAISE_BET]) {
-							scheduleSendMessage(4 + RandomUtils.nextInt(5), makeBetMessage());
+							scheduleSendMessage(3 + RandomUtils.nextInt(3), makeBetMessage());
 						} else if ( robotIntelligence.decision[IDX_COMPARE]) {
-							scheduleSendMessage(4 + RandomUtils.nextInt(5), makeCompareCardMessage());
+							scheduleSendMessage(3 + RandomUtils.nextInt(3), makeCompareCardMessage());
 						} else if (robotIntelligence.decision[IDX_FOLD]) {
-							scheduleSendMessage(4 + RandomUtils.nextInt(5), makeFoldCardMessage());
+							scheduleSendMessage(3 + RandomUtils.nextInt(3), makeFoldCardMessage());
 						} else {
 							// 默认跟注
-							scheduleSendMessage(2 + RandomUtils.nextInt(5), makeBetMessage());
+							scheduleSendMessage(2 + RandomUtils.nextInt(3), makeBetMessage());
 						}
 						robotIntelligence.cleanDecision();
 						sendChatIfNeeded();

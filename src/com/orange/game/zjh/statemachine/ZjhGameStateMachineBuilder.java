@@ -95,6 +95,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addAction(prepareRobot)
 						.addTransition(GameCommandType.LOCAL_NEW_USER_JOIN, GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
+						.addEmptyTransition(GameCommandType.LOCAL_TIME_OUT)
 						.addAction(clearTimer)
 						.addAction(clearRobotTimer);				
 		
