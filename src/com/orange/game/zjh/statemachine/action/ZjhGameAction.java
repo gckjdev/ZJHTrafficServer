@@ -160,7 +160,8 @@ public class ZjhGameAction{
 					.setSingleBet(singleBet)
 					.addAllUsersInfo(userPokersInfo)
 					.build();
-
+				ServerLog.info(0, "<NotifyGameStartAndDeal> PBZJHGameState = " + state.toString());
+				
 				GameStartNotificationRequest request = GameStartNotificationRequest.newBuilder()
 					.setZjhGameState(state)
 					.build();

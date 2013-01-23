@@ -47,9 +47,8 @@ public class ZjhGameServerHandler extends GameServerHandler {
 				return new ZjhJoinGameRequestHandler(messageEvent);
 				
 			case BET_REQUEST:
-				
 				session = GameEventExecutor.getInstance().getSessionManager().findSessionById((int)message.getSessionId());
-				if (  !session.isGamePlaying()) {
+				if ( session != null && !session.isGamePlaying()) {
 					logger.info(message.getUserId() + " tries to bet but the game is over!!!");
 					return null;
 				}
