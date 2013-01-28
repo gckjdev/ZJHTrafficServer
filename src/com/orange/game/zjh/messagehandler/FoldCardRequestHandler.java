@@ -75,7 +75,7 @@ public class FoldCardRequestHandler extends AbstractMessageHandler {
 			
 			// Player can check card anytime, so need to check is it my turn to
 			// decide whether to fire the event to make the state machine transit
-			if ( session.getCurrentPlayUserId().equals(userId)) { 
+			if ( session.safeGetCurrentPlayUserId().equals(userId)) { 
 				// Fire event
 				GameEventExecutor.getInstance().fireAndDispatchEvent(GameCommandType.LOCAL_FOLD_CARD, session.getSessionId(), userId);
 			} 

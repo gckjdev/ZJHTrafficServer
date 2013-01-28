@@ -37,7 +37,7 @@ public class CompareCardReuqestHandler extends AbstractMessageHandler {
 			logger.info("<CompareCardRequestHandler> UserId is null !!!");
 			resultCode = GameResultCode.ERROR_USERID_NULL;
 		}
-		else if ( ! session.getCurrentPlayUserId().equals(userId)) {
+		else if ( ! session.safeGetCurrentPlayUserId().equals(userId)) {
 			logger.info("<CompareCardRequestHandler> Not current player !!!");
 			resultCode = GameResultCode.ERROR_USER_NOT_CURRENT_PLAY_USER;
 		}
