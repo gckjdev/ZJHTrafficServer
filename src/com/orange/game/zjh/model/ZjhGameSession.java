@@ -278,7 +278,6 @@ public class ZjhGameSession extends GameSession {
 			if ( i > 0 && !foundPair) {
 				for ( int j = 0; j < i ; j++ ){
 					if ( ranks[j] == ranks[i]) { 
-						ServerLog.info(sessionId, userId + " gets pair: " + PBPokerRank.valueOf(ranks[i]+2));
 						pairRankMap.put(userId, ranks[i]+2);
 						foundPair = true;
 						break;

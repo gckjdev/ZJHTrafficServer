@@ -3,7 +3,6 @@ package com.orange.game.zjh.messagehandler;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.MessageEvent;
 
-import com.orange.common.log.ServerLog;
 import com.orange.game.traffic.messagehandler.AbstractMessageHandler;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.server.GameEventExecutor;
@@ -45,7 +44,6 @@ public class BetRequestHandler extends AbstractMessageHandler {
 			resultCode = GameResultCode.ERROR_USER_NOT_CURRENT_PLAY_USER;
 		}
 		else {
-//			ServerLog.info(session.getSessionId(), "Get bet request from :" + message.getUserId() );
 			int singleBet = request.getSingleBet(); // 单注
 			int count = request.getCount(); // 注数
 			boolean isAutoBet = request.getIsAutoBet(); // 是否自动跟注
@@ -73,7 +71,6 @@ public class BetRequestHandler extends AbstractMessageHandler {
 		
 		if (resultCode == GameResultCode.SUCCESS){
 			// Broadcast to all other players.		
-			boolean sendToSelf = false;
 			GameMessage.Builder builder = GameMessageProtos.GameMessage.newBuilder()
 					.setCommand(GameCommandType.BET_REQUEST)
 					.setMessageId(GameEventExecutor.getInstance().generateMessageId())
@@ -81,6 +78,7 @@ public class BetRequestHandler extends AbstractMessageHandler {
 					.setUserId(userId)
 					.setBetRequest(request);
 			
+			boolean sendToSelf = false;
 			NotificationUtils.broadcastNotification(session, builder, sendToSelf);
 			
 			// Fire event

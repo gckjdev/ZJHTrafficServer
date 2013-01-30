@@ -8,6 +8,7 @@ import com.orange.common.statemachine.State;
 import com.orange.common.statemachine.StateMachine;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.traffic.model.dao.GameUser;
+import com.orange.game.traffic.server.GameEventExecutor;
 import com.orange.game.traffic.statemachine.CommonGameAction;
 import com.orange.game.traffic.statemachine.CommonGameCondition;
 import com.orange.game.traffic.statemachine.CommonGameState;
@@ -75,6 +76,10 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 									GameSession session = (GameSession)context;
 									int userCount = condition.decide(context);
 									if (userCount == 0){
+										if ( session.isCreatedByUser() ) {
+											GameEventExecutor.getInstance().executeForSessionRealease(session.getSessionId());
+											return null;
+										}
 										session.resetGame();
 										return GameStateKey.CREATE;
 									}
@@ -94,7 +99,8 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addAction(setOneUserWaitTimer)
 						.addAction(prepareRobot)
 						.addTransition(GameCommandType.LOCAL_NEW_USER_JOIN, GameStateKey.CHECK_USER_COUNT)
-						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.CHECK_USER_COUNT)
+						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.CHECK_USER_COUNT) // 房间等待状态，有用户退出，但房间还有人
+						.addTransition(GameCommandType.LOCAL_ALL_USER_QUIT, GameStateKey.CHECK_USER_COUNT) // 房间等待状态，有用户退出，房间为空
 						.addEmptyTransition(GameCommandType.LOCAL_TIME_OUT)
 						.addAction(clearTimer)
 						.addAction(clearRobotTimer);				
@@ -149,7 +155,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 							public Object decideNextState(Object context){
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount == 1 )
+								if ( alivePlayerCount <= 1 )
 									return GameStateKey.COMPLETE_GAME;
 								else {
 									GameUser user = session.getCurrentPlayUser();
@@ -194,7 +200,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						 }); 
 		
 		stateMachine.addState(new GameState(GameStateKey.TIMEOUT_FOLD_CARD))
-						.addAction(incUserZoombieTimeOut)
+						.addAction(incUserZombieTimeOut)
 						.addAction(autoFoldCard)
 						.setDecisionPoint(new DecisionPoint(null){
 							@Override
@@ -276,14 +282,21 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		
 		stateMachine.addState(new GameState(GameStateKey.SHOW_RESULT))
 						.addAction(setShowResultTimer)
-						.addAction(finishGame)
+						.addAction(finishGame)  // finishGame 后房间状态又处于等待了
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)	
-						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
-						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
-						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+						.addEmptyTransition(GameCommandType.LOCAL_PLAY_USER_QUIT)	
+						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT)	
+						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)	
+						.addEmptyTransition(GameCommandType.LOCAL_ALL_USER_QUIT)	
+						.addEmptyTransition(GameCommandType.LOCAL_USER_QUIT)	
+//						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+//						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+//						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+//						.addTransition(GameCommandType.LOCAL_ALL_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
+//						.addTransition(GameCommandType.LOCAL_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)
-						.addAction(kickZoombieUser)
+						.addAction(kickZombieUser)
 						.addAction(clearTimer)
 						.addAction(restartGame);
 	

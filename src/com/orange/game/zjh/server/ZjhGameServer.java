@@ -20,7 +20,8 @@ public class ZjhGameServer {
 		ZjhGameSessionManager sessionManager = new ZjhGameSessionManager();
 		
 		// create server
-		GameServer server = new GameServer(new ZjhGameServerHandler(), ZjhStateMachine, sessionManager, robotManager);
+		GameServer server = new GameServer(new ZjhGameServerHandler(), ZjhStateMachine,
+				sessionManager, robotManager);
 		
 		// start server
 		server.start();

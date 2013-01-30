@@ -90,9 +90,12 @@ public class ZjhGameSessionManager extends GameSessionManager {
 
 	@Override
 	public GameCommandType  getCommandForUserQuitSession(GameSession session, GameUser quitUser, int sessionUserCount){
-		int aliveUserCount = ((ZjhGameSession)session).getAlivePlayerCount();
+		
 		GameCommandType command = null;		
+		
 		if (session.isGamePlaying() ) {
+			// 房间处于游戏状态
+			int aliveUserCount = ((ZjhGameSession)session).getAlivePlayerCount();
 			if (session.isCurrentPlayUser(quitUser.getUserId())){
 				command = GameCommandType.LOCAL_PLAY_USER_QUIT;			
 			}
@@ -106,7 +109,19 @@ public class ZjhGameSessionManager extends GameSessionManager {
 				command = null;
 			}
 		} else {
-			command = null;
+			// 房间处于等待状态
+			/**
+			 *  注意！ 
+			 *  由于userQuitSession中调用此方法后才把这个离开的用户从房间中移除，
+			 *  所以，此时的userCount是把离开的这个用户算在内的。      
+			 */
+			if ( sessionUserCount > 1 ) {                  
+				command = GameCommandType.LOCAL_USER_QUIT; // 有人退出，但房间还有人
+			} else if ( sessionUserCount == 1 ) {
+				command = GameCommandType.LOCAL_ALL_USER_QUIT; // 所有人都退出房间了 
+			} else {
+				command = null;
+			}
 		}
 		
 		return command;
