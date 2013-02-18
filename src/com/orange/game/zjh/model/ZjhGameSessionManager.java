@@ -148,4 +148,10 @@ public class ZjhGameSessionManager extends GameSessionManager {
 				+", MaxUserPerSession = "+ retValue);
 		return retValue;
 	}
+
+
+	@Override
+	public void postActionForUserQuitSession(GameSession session,
+			GameUser quitUser) {
+	}
 }

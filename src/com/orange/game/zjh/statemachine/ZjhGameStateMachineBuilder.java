@@ -101,10 +101,18 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addTransition(GameCommandType.LOCAL_NEW_USER_JOIN, GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_USER_QUIT, GameStateKey.CHECK_USER_COUNT) // 房间等待状态，有用户退出，但房间还有人
 						.addTransition(GameCommandType.LOCAL_ALL_USER_QUIT, GameStateKey.CHECK_USER_COUNT) // 房间等待状态，有用户退出，房间为空
-						.addEmptyTransition(GameCommandType.LOCAL_TIME_OUT)
+						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.KICK_PLAY_USER)
 						.addAction(clearTimer)
 						.addAction(clearRobotTimer);				
 		
+		stateMachine.addState(new GameState(GameStateKey.KICK_PLAY_USER))
+						.addAction(kickPlayUser)
+						.setDecisionPoint(new DecisionPoint(null){
+							@Override
+							public Object decideNextState(Object context){
+								return GameStateKey.CHECK_USER_COUNT;	// goto check user count state directly
+							}
+						});
 		
 		
 		stateMachine.addState(new GameState(GameStateKey.WAIT_FOR_START_GAME))
