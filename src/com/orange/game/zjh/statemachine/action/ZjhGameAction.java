@@ -19,6 +19,8 @@ import com.orange.game.zjh.model.ZjhGameSession;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameResultCode;
 import com.orange.network.game.protocol.message.GameMessageProtos;
+import com.orange.network.game.protocol.message.GameMessageProtos.BetRequest;
+import com.orange.network.game.protocol.message.GameMessageProtos.BetResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardRequest;
 import com.orange.network.game.protocol.message.GameMessageProtos.FoldCardResponse;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
@@ -31,6 +33,8 @@ import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserPlayInfo;
 
 
 public class ZjhGameAction{
+
+
 
 	public enum  ZjhTimerType {
 		START_GAME, DEAL_AND_WAIT, WAIT_CLAIM, SHOW_RESULT, 
@@ -87,7 +91,59 @@ public class ZjhGameAction{
 
 	}
 
-	public static class AutoFoldCard implements Action {
+	
+	public static class TimeoutBet implements Action {
+
+		@Override
+		public void execute(Object context) {
+			ZjhGameSession session = (ZjhGameSession)context;
+			String userId = session.getCurrentPlayUserId();
+			
+			// bet 
+			int singleBet = session.getSingleBet();
+			int count = ( session.hasUserCheckedCard(userId) ? 2 : 1 );
+			boolean autoBet = false;
+			GameResultCode resultCode = session.bet(userId, singleBet, count, autoBet);
+			ServerLog.info(session.getSessionId(), "timeout bet user is " + userId + ", singleBet = " + singleBet 
+					    + ", count = " + count + ", autoBet = " + autoBet);
+			
+			if ( resultCode == GameResultCode.SUCCESS ) {
+				BetRequest request = BetRequest.newBuilder()
+						.setSingleBet(singleBet)
+						.setCount(count)
+						.setIsAutoBet(autoBet)
+						.build();
+				
+				// send response
+				GameUser gameUser = GameUserManager.getInstance().findUserById(userId);
+				if ( gameUser != null ) {
+					BetResponse betResponse = BetResponse.newBuilder().build();
+					GameMessage response = GameMessage.newBuilder()
+							.setCommand(GameCommandType.BET_RESPONSE)
+							.setMessageId(GameEventExecutor.getInstance().generateMessageId())
+							.setResultCode(GameResultCode.SUCCESS)
+							.setUserId(userId)
+							.setBetRequest(request)
+							.setBetResponse(betResponse)
+							.build();
+					Channel channel = gameUser.getChannel();
+					HandlerUtils.sendMessage(response, channel);
+				}
+			
+				// broadcast to others
+				GameMessage broadcastMessage = GameMessage.newBuilder()
+						.setCommand(GameCommandType.BET_REQUEST)
+						.setMessageId(GameEventExecutor.getInstance().generateMessageId())
+						.setUserId(userId)
+						.setBetRequest(request)
+						.build();
+				NotificationUtils.broadcastNotification(session, userId, broadcastMessage);
+			}
+		}
+	}
+
+
+	public static class TimeoutFoldCard implements Action {
 
 		@Override
 		public void execute(Object context) {
@@ -95,7 +151,7 @@ public class ZjhGameAction{
 			String userId = session.getCurrentPlayUserId();
 			
 			// fold card
-			ServerLog.info(session.getSessionId(), "auto fold card user is " + userId);
+			ServerLog.info(session.getSessionId(), "timeout fold card user is " + userId);
 			session.foldCard(userId);
 			
 			// send response

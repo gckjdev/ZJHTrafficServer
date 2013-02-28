@@ -18,6 +18,7 @@ import com.orange.game.zjh.statemachine.action.ZjhGameAction;
 import com.orange.game.zjh.statemachine.state.GameState;
 import com.orange.game.zjh.statemachine.state.GameStateKey;
 import com.orange.network.game.protocol.constants.GameConstantsProtos.GameCommandType;
+import com.orange.network.game.protocol.model.ZhaJinHuaProtos.PBZJHUserAction;
 
 public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 
@@ -35,6 +36,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
     
     private static final int START_GAME_TIMEOUT = 3; // 用户就绪到游戏开始的等待时间
     private static final int WAIT_CLAIM_TIMEOUT = 17;// 每个玩家当前轮次等待时间
+
 
     
 	@Override
@@ -54,7 +56,8 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 		Action clearPlayingStatus		 = new ZjhGameAction.ClearAllPlayingStatus();
 		Action restartGame				 = new ZjhGameAction.RestartGame();	
 		Action setAlivePlayerCout		 = new ZjhGameAction.SetAlivePlayerCout();
-		Action autoFoldCard            = new ZjhGameAction.AutoFoldCard();
+		Action timeoutBet              = new ZjhGameAction.TimeoutBet();
+		Action timeoutFoldCard         = new ZjhGameAction.TimeoutFoldCard();
 		Action setTotalBet				 = new ZjhGameAction.SetTotalBet();
 		Action setAllPlayerLoseGameToFalse
 												 = new ZjhGameAction.SetAllPlayerLoseGameToFalse();
@@ -163,7 +166,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 							public Object decideNextState(Object context){
 								ZjhGameSession session = (ZjhGameSession)context;
 								int alivePlayerCount = session.getAlivePlayerCount();
-								if ( alivePlayerCount <= 1 )
+								if ( alivePlayerCount <= 1 || session.shallCompleteGame())
 									return GameStateKey.COMPLETE_GAME;
 								else {
 									GameUser user = session.getCurrentPlayUser();
@@ -192,7 +195,7 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addTransition(GameCommandType.LOCAL_COMPARE_CARD,GameStateKey.PLAYER_COMPARE_CARD) // 比牌
 						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.PLAY_USER_QUIT)
 						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT, GameStateKey.COMPLETE_GAME)
-						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.TIMEOUT_FOLD_CARD) // 超时没作出选择，视为弃牌
+						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.TIMEOUT_ACTION) // 超时无动作，根据设置作出选择
 						.addTransition(GameCommandType.LOCAL_NOT_CURRENT_TURN_FOLD_CARD,GameStateKey.COMPLETE_GAME) // 非当前轮玩家弃牌导致游戏可结束
 						.addEmptyTransition(GameCommandType.LOCAL_OTHER_USER_QUIT) // 激发此事件说明房间至少剩2个以上玩家，且该退出玩家不是当前轮，所以不动
 						.addEmptyTransition(GameCommandType.LOCAL_NEW_USER_JOIN)  // 旁观者加入
@@ -207,9 +210,37 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 							}
 						 }); 
 		
+		stateMachine.addState(new GameState(GameStateKey.TIMEOUT_ACTION))
+						.setDecisionPoint(new DecisionPoint(null){
+							@Override
+							public Object decideNextState(Object context){
+								ZjhGameSession session = (ZjhGameSession)context;
+								if ( session.chooseCurrentPlayerTimeoutAction() == PBZJHUserAction.BET)
+									return GameStateKey.TIMEOUT_BET;
+								else 
+									return GameStateKey.TIMEOUT_FOLD_CARD;
+							}
+						 }); 
+
+		stateMachine.addState(new GameState(GameStateKey.TIMEOUT_BET))
+//						.addAction(incUserZombieTimeOut)   // 不要增加UserZombieTimeout，因为这是用户主动设定的
+						.addAction(timeoutBet)
+							.setDecisionPoint(new DecisionPoint(null){
+							@Override
+							public Object decideNextState(Object context){
+								ZjhGameSession session = (ZjhGameSession)context;
+								int alivePlayerCount = session.getAlivePlayerCount(); // 此时获得的aliveCount不算上弃牌的用户
+								if ( alivePlayerCount < 2 ) 
+									return GameStateKey.COMPLETE_GAME;
+								else 
+									return GameStateKey.SELECT_NEXT_PLAYER;
+							}
+						});
+		
+		
 		stateMachine.addState(new GameState(GameStateKey.TIMEOUT_FOLD_CARD))
 						.addAction(incUserZombieTimeOut)
-						.addAction(autoFoldCard)
+						.addAction(timeoutFoldCard)
 						.setDecisionPoint(new DecisionPoint(null){
 							@Override
 							public Object decideNextState(Object context){
@@ -220,8 +251,9 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 								else 
 									return GameStateKey.SELECT_NEXT_PLAYER;
 							}
-						});;
+						});
 
+		
 		stateMachine.addState(new GameState(GameStateKey.PLAYER_FOLD_CARD))
 						.addAction(clearTimer) // 清掉该用户的计时器
 						.setDecisionPoint(new DecisionPoint(null){
@@ -297,11 +329,6 @@ public class ZjhGameStateMachineBuilder extends CommonStateMachineBuilder {
 						.addEmptyTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT)	
 						.addEmptyTransition(GameCommandType.LOCAL_ALL_USER_QUIT)	
 						.addEmptyTransition(GameCommandType.LOCAL_USER_QUIT)	
-//						.addTransition(GameCommandType.LOCAL_PLAY_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
-//						.addTransition(GameCommandType.LOCAL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
-//						.addTransition(GameCommandType.LOCAL_ALL_OTHER_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
-//						.addTransition(GameCommandType.LOCAL_ALL_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
-//						.addTransition(GameCommandType.LOCAL_USER_QUIT,GameStateKey.CHECK_USER_COUNT)
 						.addTransition(GameCommandType.LOCAL_TIME_OUT, GameStateKey.CHECK_USER_COUNT)
 						.addAction(clearPlayingStatus)
 						.addAction(kickZombieUser)

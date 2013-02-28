@@ -47,7 +47,13 @@ public class ZjhGameSession extends GameSession {
 	// 房间当前单注值， 默认值跟房间类型有关
 	private volatile int singleBet;
 	// 房间当前总注
-	private int totalBet;
+	private volatile int totalBet;
+	// 房间初始单注值
+	private final int  initSingleBet ;
+	// 房间总注上限
+	private final int totalBetThreshold;
+	// 房间最大筹码值
+	private final int maximumAnte ;
 	// 是否有人拿了豹子牌？ 
 	private boolean someOneGotKing;
 	 
@@ -65,8 +71,12 @@ public class ZjhGameSession extends GameSession {
 	// 每个玩家的总注
 	private Map<String, Integer> totalBetMap = new ConcurrentHashMap<String, Integer>();
 	// 每个玩家的下注次数（抵消掉换牌用去的次数，每三次可换一张牌)
-	private Map<String, Integer> playerBetTimes = new ConcurrentHashMap<String, Integer>();;
-	
+	private Map<String, Integer> playerBetTimes = new ConcurrentHashMap<String, Integer>();
+	// 每个玩家的超时选择: 弃牌或跟牌
+	private Map<String, PBZJHUserAction> timeoutSettingMap = new ConcurrentHashMap<String, PBZJHUserAction>();
+	// 存放比牌结果
+	private Map<String, PBUserResult> compareResults = new HashMap<String, PBUserResult>();
+
 	// 每玩家游戏状态信息
 	// bit 0 : is auto bet?  [0: false, 1: true]
 	// bit 1 : has checked card? [0: false, 1: true]
@@ -85,21 +95,19 @@ public class ZjhGameSession extends GameSession {
 	// bit 13 : change card
 	// *** so the initial value of userInfoMask is 0x20 (0 0000 0010 0000) 
 	private Map<String, Integer> userPlayInfoMask = new ConcurrentHashMap<String, Integer>();
-
-	// 存放比牌结果
-	private Map<String, PBUserResult> compareResults = new HashMap<String, PBUserResult>();
 	
-	private UserGameResultService gameResultService = UserGameResultService.getInstance();
-	private ZjhGameTestData test = ZjhGameTestData.getInstance();
-	
-	private final int  initSingleBet ;
-	private final int maximumBet ;
 	private ChangeCardResponse response = null;
 	
 	private static final String ROBOT_UID_PREFIX = "9999";
 	
+	private UserGameResultService gameResultService = UserGameResultService.getInstance();
+	private ZjhGameTestData test = ZjhGameTestData.getInstance();
+	
+	private String compareWinner = null;
+	private String compareLoser = null;
+	
 	public ZjhGameSession(int sessionId, String name, String password, boolean createByUser, String createBy, 
-			int ruleType, int maxPlayerCount, int testEnable, int initSingleBet, int maximumBet) {
+			int ruleType, int maxPlayerCount, int testEnable, int initSingleBet, int totalBetThreshold, int maximumAnte) {
 		super(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable);
 		// init state
 		this.currentState = ZjhGameStateMachineBuilder.INIT_STATE;
@@ -108,7 +116,8 @@ public class ZjhGameSession extends GameSession {
 			pokerPool[i] = i;
 		}
 		this.singleBet = this.initSingleBet = initSingleBet;
-		this.maximumBet = maximumBet;
+		this.totalBetThreshold = totalBetThreshold;
+		this.maximumAnte = maximumAnte;
 	}
 	
 
@@ -133,6 +142,7 @@ public class ZjhGameSession extends GameSession {
 		compareResults.clear();
 		userResults.clear();
 		playerBetTimes.clear();
+		timeoutSettingMap.clear();
 	}
 
 	
@@ -359,7 +369,26 @@ public class ZjhGameSession extends GameSession {
 		return PBPokerSuit.valueOf(value);
 	}
 	
-	public GameResultCode bet(String userId, int givenSingleBet, int count,
+	
+	public GameResultCode timeoutBet(String userId) {
+		
+		if ( !userPlayInfoMask.containsKey(userId) ) {
+			ServerLog.info(sessionId, "<ZjhGameSessuion.timeoutBet> "+ userId+ " not in this session???!!!");
+			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
+		} 
+		
+		int count = 1;
+		int userInfo = userPlayInfoMask.get(userId);
+		if ( (userInfo & USER_INFO_CHECKED_CARD) == USER_INFO_CHECKED_CARD ) {
+			count =  2;
+		} 
+		boolean isAutoBet = false;
+			
+		return bet(userId, singleBet, count, isAutoBet);
+	}
+
+	
+	public synchronized GameResultCode bet(String userId, int givenSingleBet, int count,
 			boolean isAutoBet) {
 		
 		if ( !userPlayInfoMask.containsKey(userId) ) {
@@ -427,6 +456,18 @@ public class ZjhGameSession extends GameSession {
 		return GameResultCode.SUCCESS;
 	}
 
+	
+	public boolean hasUserCheckedCard(String userId) {
+		
+		if ( !userPlayInfoMask.containsKey(userId) ) {
+			ServerLog.info(sessionId, "<ZjhGameSessuion.hasUserCheckedCard> "+ userId+ " not in this session???!!!");
+			return false;
+		} 
+		
+		int userInfo = userPlayInfoMask.get(userId);
+		return ((userInfo & USER_INFO_CHECKED_CARD) == USER_INFO_CHECKED_CARD);
+	}
+	
 	
 	public synchronized GameResultCode foldCard(String userId) {
 		
@@ -500,9 +541,6 @@ public class ZjhGameSession extends GameSession {
 
 	public GameResultCode compareCard(final String userId, String toUserId) {
 		
-		String winner = null;
-		String loser = null;
-		
 		if ( !userPlayInfoMask.containsKey(userId) ||  !userPlayInfoMask.containsKey(toUserId)) {
 			ServerLog.info(sessionId, "<ZjhGameSessuion.compareCard> "+ userId+ " or "+ toUserId +" not in this session???!!!");
 			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
@@ -519,6 +557,68 @@ public class ZjhGameSession extends GameSession {
 		}
 		
 		// 开始比牌！
+		doCompareCard(userId, toUserId);
+		
+		// 如果发起比牌者(ID为userId的玩家)输了,要额外惩罚,扣除一定金币： 该场最大筹码数×4
+		int compareChanllengerLoss = 0;
+		if ( userId.equals(compareLoser) && ! userId.startsWith(ROBOT_UID_PREFIX)) {
+			compareChanllengerLoss = maximumAnte * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR;
+			dbService.executeDBRequest(sessionId, new Runnable() {
+				@Override
+				public void run() {
+					MongoDBClient dbClient = dbService.getMongoDBClient(sessionId);
+					UserManager.deductAccount(dbClient, userId, maximumAnte * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
+				}
+			});
+			ServerLog.info(sessionId, "<compareCard> User " + userId + " chanllenges to compare card, but fails, so gets " +
+					compareChanllengerLoss + " coins loss. ");
+		}
+				
+		// 刷新winner的状态
+		int winnerOldInfo = userPlayInfoMask.get(compareWinner);
+		winnerOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
+		userPlayInfoMask.put(compareWinner, winnerOldInfo | USER_INFO_ACTION_COMPARE_CARD );
+		
+		// 刷新loser的状态
+		int loserOldInfo = userPlayInfoMask.get(compareLoser);
+		loserOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
+		userPlayInfoMask.put(compareLoser, loserOldInfo | USER_INFO_ACTION_COMPARE_CARD | USER_INFO_COMPARE_LOSE );
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> before "+ compareLoser 
+				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
+		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> after "+ compareLoser 
+				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
+		GameUser loserUser = findUser(compareLoser);// 不能用GameUserManager.getInstance().findUserById()这个方法
+		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> loserUser = " + (loserUser == null ? null : loserUser) );
+		if ( loserUser != null ) {
+			ServerLog.info(sessionId, "<ZjhGameSession.compareCard> Set " + userId + " loseGame status to true.");
+			loserUser.setLoseGame(true); //设玩家游戏状态为loseGame为true
+		}
+		
+		// 并马上扣除其赌注
+		PBUserResult result = gameResultService.makePBUserResult(compareLoser, false, -1 * totalBetMap.get(compareLoser));
+		gameResultService.writeUserCoinsIntoDB(sessionId, result, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
+		
+		// 构造userResult以返回
+		compareResults.clear(); // 之前可能有人比牌,所以要清除
+		
+		PBUserResult winnerResult = gameResultService.makePBUserResult(compareWinner, true, 0);
+		compareResults.put(compareWinner, winnerResult);
+		
+		PBUserResult loserResult = gameResultService.makePBUserResult(compareLoser,false,-1 * compareChanllengerLoss);
+		compareResults.put(compareLoser, loserResult);
+		 
+		// 放入最终结果,以便游戏结束时一起送回客户端
+//		userResults.put(loser, loserResult);
+		
+		return GameResultCode.SUCCESS;
+	}
+
+
+	private void doCompareCard(final String userId, String toUserId) {
+		
+		compareWinner = null;
+		compareLoser = null;
 		
 		int userCardType = cardTypeMap.get(userId).ordinal();
 		int toUserCardType = cardTypeMap.get(toUserId).ordinal();
@@ -535,13 +635,13 @@ public class ZjhGameSession extends GameSession {
 		
 		// 一般情况, 开始具体比牌操作
 		if ( userCardType < toUserCardType ) {
-				winner = toUserId;
-				loser = userId;
+				compareWinner = toUserId;
+				compareLoser = userId;
 				ServerLog.info(sessionId, "<compareCard> usercarType < touserCardType" );
 		}
 		else if ( userCardType > toUserCardType ) {
-				winner = userId;
-				loser = toUserId;
+				compareWinner = userId;
+				compareLoser = toUserId;
 				ServerLog.info(sessionId, "<compareCard> usercarType > touserCardType");
 		}
 		else {
@@ -552,114 +652,85 @@ public class ZjhGameSession extends GameSession {
 				int userPairRank = pairRankMap.get(userId);
 				int toUserPairRank = pairRankMap.get(toUserId);
 				if ( userPairRank > toUserPairRank ) {
-					winner = userId;
-					loser = toUserId;
+					compareWinner = userId;
+					compareLoser = toUserId;
 				} else if (userPairRank < toUserPairRank ) {
-					winner = toUserId;
-					loser = userId;
+					compareWinner = toUserId;
+					compareLoser = userId;
 				}  else {
 					// 先把对子牌的掩码位清除（置为1）
 					userRankMask |= 1 << (userPairRank - 2 );
 					toUserRankMask |= 1 << (toUserPairRank - 2 );
 					// 剩下的值就是单张牌的掩码值，直接比较
 					if ( userRankMask > toUserRankMask ) {
-						winner = toUserId;
-						loser = userId;
+						compareWinner = toUserId;
+						compareLoser = userId;
 					} else if ( userRankMask < toUserRankMask ) {
-						winner = userId;
-						loser = toUserId;
+						compareWinner = userId;
+						compareLoser = toUserId;
 					} else {
 						// 牌面一样大，直接判发起比牌的玩家输！
-						winner = toUserId;
-						loser = userId;
+						compareWinner = toUserId;
+						compareLoser = userId;
 					}
 				}
 			}
 			// A23顺子牌特殊考虑   
 			else if ( userRankMask == RANK_MASK_A23 && toUserRankMask != RANK_MASK_A23) {
-				winner = toUserId;
-				loser = userId;
+				compareWinner = toUserId;
+				compareLoser = userId;
 			}
 			else if ( userRankMask != RANK_MASK_A23 && toUserRankMask == RANK_MASK_A23) {
-				winner = userId;
-				loser = toUserId;
+				compareWinner = userId;
+				compareLoser = toUserId;
 			}
 			else if ( userRankMask == RANK_MASK_A23 && toUserRankMask == RANK_MASK_A23) {
-				winner = toUserId;
-				loser = userId;
+				compareWinner = toUserId;
+				compareLoser = userId;
 			}
 			else if ( userRankMask < toUserRankMask ) {
-				winner = userId;
-				loser = toUserId;
+				compareWinner = userId;
+				compareLoser = toUserId;
 			} 
 			else if ( userRankMask > toUserRankMask ) {
-				winner = toUserId;
-				loser = userId;
+				compareWinner = toUserId;
+				compareLoser = userId;
 			} 
 			else {
 				// 如果牌面值也是一样大，不再进行花色的比较，直接判定主动比牌的玩家输！
-				winner = toUserId;
-				loser = userId;
+				compareWinner = toUserId;
+				compareLoser = userId;
 			}
 		}
+	}
+
+	
+	public GameResultCode setTimeoutAction(String userId, PBZJHUserAction action) {
 		
-		// 比牌结束！
-		
-		// 如果发起比牌者(ID为userId的玩家)输了,要额外惩罚,扣除一定金币： 该场最大筹码数×4
-		int compareChanllengerLoss = 0;
-		if ( userId.equals(loser) && ! userId.startsWith(ROBOT_UID_PREFIX)) {
-			compareChanllengerLoss = maximumBet * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR;
-			dbService.executeDBRequest(sessionId, new Runnable() {
-				@Override
-				public void run() {
-					MongoDBClient dbClient = dbService.getMongoDBClient(sessionId);
-					UserManager.deductAccount(dbClient, userId, maximumBet * ZjhGameConstant.COMPARE_CHANLLEGER_LOSS_MULTIPLY_FACTOR, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
-				}
-			});
-			ServerLog.info(sessionId, "<compareCard> User " + userId + " chanllenges to compare card, but fails, so gets " +
-					compareChanllengerLoss + " coins loss. ");
+		if ( !userPlayInfoMask.containsKey(userId) ) {
+			ServerLog.info(sessionId, "<ZjhGameSessuion.setTimeoutAction> "+ userId + " not in this session???!!!");
+			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
+		} 
+		else {
+			int userInfo = userPlayInfoMask.get(userId);
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.setTimeoutAction> "+ userId + " has folded card !!! Needn't set timeout action.");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			} 
+			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_COMPARE_LOSE ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.setTimeoutAction> "+ userId + " has losed the game !!! Needn't set timeout action.");
+				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+			}
+			else {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.setTimeoutAction> "+ userId + " set timeout action to " + action);
+				timeoutSettingMap.put(userId, action);
+			}
 		}
-				
-		// 刷新winner的状态
-		int winnerOldInfo = userPlayInfoMask.get(winner);
-		winnerOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
-		userPlayInfoMask.put(winner, winnerOldInfo | USER_INFO_ACTION_COMPARE_CARD );
-		
-		// 刷新loser的状态
-		int loserOldInfo = userPlayInfoMask.get(loser);
-		loserOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
-		userPlayInfoMask.put(loser, loserOldInfo | USER_INFO_ACTION_COMPARE_CARD | USER_INFO_COMPARE_LOSE );
-		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> before "+ loser 
-				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
-		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
-		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> after "+ loser 
-				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
-		GameUser loserUser = findUser(loser);// 不能用GameUserManager.getInstance().findUserById()这个方法
-		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> loserUser = " + (loserUser == null ? null : loserUser) );
-		if ( loserUser != null ) {
-			ServerLog.info(sessionId, "<ZjhGameSession.compareCard> Set " + userId + " loseGame status to true.");
-			loserUser.setLoseGame(true); //设玩家游戏状态为loseGame为true
-		}
-		
-		// 并马上扣除其赌注
-		PBUserResult result = gameResultService.makePBUserResult(loser, false, -1 * totalBetMap.get(loser));
-		gameResultService.writeUserCoinsIntoDB(sessionId, result, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
-		
-		// 构造userResult以返回
-		compareResults.clear(); // 之前可能有人比牌,所以要清除
-		
-		PBUserResult winnerResult = gameResultService.makePBUserResult(winner, true, 0);
-		compareResults.put(winner, winnerResult);
-		
-		PBUserResult loserResult = gameResultService.makePBUserResult(loser,false,-1 * compareChanllengerLoss);
-		compareResults.put(loser, loserResult);
-		 
-		// 放入最终结果,以便游戏结束时一起送回客户端
-//		userResults.put(loser, loserResult);
 		
 		return GameResultCode.SUCCESS;
 	}
 
+	
 	// 游戏中途玩家加入时，调用这个方法更新userPlayInfoList,以传给客户端
 	public List<PBZJHUserPlayInfo> getUserPlayInfo() {
 		
@@ -705,7 +776,6 @@ public class ZjhGameSession extends GameSession {
 						.build();
 			
 		int userPlayInfo = userPlayInfoMask.get(userId);
-//		ServerLog.info(sessionId, "<updateUserPlayInfo>" + userId +"'s UserPlayInfo is " + Integer.toBinaryString(userPlayInfo));
 		int totalBet = totalBetMap.get(userId);
 		PBZJHUserAction lastAction = lastAction(userPlayInfo);
 		boolean isAutoBet = 
@@ -777,33 +847,38 @@ public class ZjhGameSession extends GameSession {
 	public PBUserResult judgeWhoWins() {
 	
 		PBUserResult result = null; 
-		PBUserResult nominalResult = null; 
+		PBUserResult nominalResult = null;
 		
-		for (Map.Entry<String, Integer> entry: userPlayInfoMask.entrySet()) {
-				int userPlayInfo = entry.getValue();
-				// 当真正开始玩（ACTUAL_PLAYING, 即进入轮次变更时）并且玩家未弃牌并且比牌未输，算是胜者;
-				// 当在发牌到玩家开始玩这段特殊“窗口期“(PLAYING而不是ACTUAL_PLAYING)
-				// ， 最后留在房间中的算是胜者。
-				if (  status.equals(SessionStatus.ACTUAL_PLAYING) 
-						&& ( userPlayInfo & USER_INFO_COMPARE_LOSE) == USER_INFO_COMPARE_LOSE 
-						|| ( userPlayInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) 
+		/**
+		 * 判定赢家
+		 */
+		compareWinner = null;
+		synchronized (userPlayInfoMask) {
+			for ( Map.Entry<String, Integer> entry : userPlayInfoMask.entrySet()) {
+				if ( compareWinner == null) {
+					compareWinner = entry.getKey();
 					continue;
-			
-				String userId = entry.getKey();
-				boolean win = true;
-				// 扣赢家的税
-				int tax = (int)Math.round(totalBet*ZjhGameConstant.WINNER_TAX_RATE);
-				ServerLog.info(sessionId, "<judgeWhoWins> Tax the winner 10 percent of his gain coins. Tax is : "+ totalBet
-						+" * "+ ZjhGameConstant.WINNER_TAX_RATE + " = " + tax);
-				int gainCoins = totalBet - totalBetMap.get(userId) - tax; // 自己下的赌注只是帐面上的值，并没有真正掏出口袋，
-																							 // 所以最后收获的值需要减去自己的赌注
-				
-				result = gameResultService.makePBUserResult(userId, win, gainCoins);
-				// 名义上的结果, 需要把赢家自己的赌注也加上, 以返回给客户端
-				nominalResult = gameResultService.makePBUserResult(userId, win, totalBet - tax);
-				
-				userResults.put(userId, nominalResult);
+				}
+				doCompareCard(compareWinner, entry.getKey());
+			}
 		}
+		
+		/** 
+		 * 扣赢家的税
+		 */
+		int tax = (int)Math.round(totalBet*ZjhGameConstant.WINNER_TAX_RATE);
+		ServerLog.info(sessionId, "<judgeWhoWins> Tax the winner 10 percent of his gain coins. Tax is : "+ totalBet
+				+" * "+ ZjhGameConstant.WINNER_TAX_RATE + " = " + tax);
+
+		/**
+		 *  构造结果
+		 */
+		int gainCoins = totalBet - totalBetMap.get(compareWinner) - tax; // 自己下的赌注只是帐面上的值，并没有真正掏出口袋，
+																					 // 所以最后收获的值需要减去自己的赌注
+		result = gameResultService.makePBUserResult(compareWinner, true, gainCoins);
+		// 名义上的结果, 需要把赢家自己的赌注也加上, 以返回给客户端
+		nominalResult = gameResultService.makePBUserResult(compareWinner, true, totalBet - tax);
+		userResults.put(compareWinner, nominalResult);
 		
 		return result;
 	}
@@ -943,6 +1018,23 @@ public class ZjhGameSession extends GameSession {
 		return result;
 	}
 
-	
+	public PBZJHUserAction chooseCurrentPlayerTimeoutAction() {
+
+		String currentPlayerId = getCurrentPlayUserId();
+		if ( currentPlayerId == null ) {
+			ServerLog.info(sessionId, "<chooseCurrentPlayerTimeoutAction> current player Id is null ?! ");
+			return null;
+		}
+		
+		PBZJHUserAction timeoutAction = timeoutSettingMap.get(currentPlayerId);
+		ServerLog.info(sessionId, "<chooseCurrentPlayerTimeoutAction> current player "+ currentPlayerId + " chooses " + timeoutAction);
+		return timeoutAction;
+	}
+
+
+	// 达到房间总注限额就会结束游戏
+	public boolean shallCompleteGame() {
+		return totalBet >= totalBetThreshold;
+	}
 	
 }

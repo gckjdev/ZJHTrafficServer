@@ -71,11 +71,17 @@ public class ZjhGameConstant {
 	public static final int SINGLE_BET_DUAL = 10;
 	public static final int SINGLE_BET_RICH = 25;
 
-	// Maxinum bet by rule type
-	public static final int MAX_BET_BEGINER = 50;
-	public static final int MAX_BET_NORMAL = 50;
-	public static final int MAX_BET_DUAL = 100;
-	public static final int MAX_BET_RICH = 250;
+	// Maxinum ante by rule type
+	public static final int MAX_ANTE_BEGINER = 50;
+	public static final int MAX_ANTE_NORMAL = 50;
+	public static final int MAX_ANTE_DUAL = 100;
+	public static final int MAX_ANTE_RICH = 250;
+
+	// Total bet threshold by rule type
+	public static final int TOTAL_BET_THRESHOLD_BEGINER = 50000;
+	public static final int TOTAL_BET_THRESHOLD_NORMAL = 50000;
+	public static final int TOTAL_BET_THRESHOLD_DUAL = 500000;
+	public static final int TOTAL_BET_THRESHOLD_RICH = 500000;
 
 
 

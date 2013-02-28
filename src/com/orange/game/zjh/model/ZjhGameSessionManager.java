@@ -14,7 +14,7 @@ public class ZjhGameSessionManager extends GameSessionManager {
 			String password, boolean createByUser, String createBy,
 			int ruleType, int maxPlayerCount, int testEnable) {
 		return new ZjhGameSession(sessionId, name, password, createByUser, createBy, ruleType, maxPlayerCount, testEnable,
-				getInitSingleBet(ruleType), getMaximumBet(ruleType));
+				getInitSingleBet(ruleType), getTotalBetThreshold(ruleType), getMaximumAnte(ruleType));
 	}
 
 
@@ -50,20 +50,37 @@ public class ZjhGameSessionManager extends GameSessionManager {
 		}
    }
 	
-   public int getMaximumBet(int ruleType) {
+   public int getMaximumAnte(int ruleType) {
 	   
 	    switch (ruleType) {
 				case PBZJHRuleType.BEGINER_VALUE:
-					return ZjhGameConstant.MAX_BET_BEGINER;
+					return ZjhGameConstant.MAX_ANTE_BEGINER;
 				case PBZJHRuleType.NORMAL_VALUE:
-					return ZjhGameConstant.MAX_BET_NORMAL;
+					return ZjhGameConstant.MAX_ANTE_NORMAL;
 				case PBZJHRuleType.DUAL_VALUE:
-					return ZjhGameConstant.MAX_BET_DUAL;
+					return ZjhGameConstant.MAX_ANTE_DUAL;
 				case PBZJHRuleType.RICH_VALUE:
-					return ZjhGameConstant.MAX_BET_RICH;
+					return ZjhGameConstant.MAX_ANTE_RICH;
 				default:
 					return 200;
 	    }
+    }
+   
+   
+   public int getTotalBetThreshold(int ruleType) {
+	
+	    switch (ruleType) {
+	    	case PBZJHRuleType.BEGINER_VALUE:
+	    		return ZjhGameConstant.TOTAL_BET_THRESHOLD_BEGINER;
+	    	case PBZJHRuleType.NORMAL_VALUE:
+	    		return ZjhGameConstant.TOTAL_BET_THRESHOLD_NORMAL;
+	    	case PBZJHRuleType.DUAL_VALUE:
+	    		return ZjhGameConstant.TOTAL_BET_THRESHOLD_DUAL;
+	    	case PBZJHRuleType.RICH_VALUE:
+	    		return ZjhGameConstant.TOTAL_BET_THRESHOLD_RICH;
+	    	default:
+	    		return ZjhGameConstant.TOTAL_BET_THRESHOLD_NORMAL;
+		}
     }
    
 	@Override

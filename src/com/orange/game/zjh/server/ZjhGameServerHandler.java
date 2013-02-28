@@ -18,6 +18,7 @@ import com.orange.game.zjh.messagehandler.CheckCardRequestHandler;
 import com.orange.game.zjh.messagehandler.CompareCardReuqestHandler;
 import com.orange.game.zjh.messagehandler.FoldCardRequestHandler;
 import com.orange.game.zjh.messagehandler.ShowCardRequestHandler;
+import com.orange.game.zjh.messagehandler.TimeoutSettingRequestHandler;
 import com.orange.game.zjh.messagehandler.ZjhJoinGameRequestHandler;
 import com.orange.game.zjh.messagehandler.ZjhUseItemRequestHandler;
 import com.orange.network.game.protocol.message.GameMessageProtos.GameMessage;
@@ -77,6 +78,9 @@ public class ZjhGameServerHandler extends GameServerHandler {
 				
 			case USE_ITEM_REQUEST:
 				return new ZjhUseItemRequestHandler(messageEvent);
+				
+			case TIMEOUT_SETTING_REQUEST:
+				return new TimeoutSettingRequestHandler(messageEvent);
 				
 			default:
 				break;
