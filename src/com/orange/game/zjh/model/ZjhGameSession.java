@@ -855,6 +855,14 @@ public class ZjhGameSession extends GameSession {
 		compareWinner = null;
 		synchronized (userPlayInfoMask) {
 			for ( Map.Entry<String, Integer> entry : userPlayInfoMask.entrySet()) {
+				int userPlayInfo = entry.getValue();
+	            // 当真正开始玩（ACTUAL_PLAYING, 即进入轮次变更时）并且玩家未弃牌并且比牌未输，算是胜者;
+				if (status.equals(SessionStatus.ACTUAL_PLAYING) 
+						&& ( userPlayInfo & USER_INFO_COMPARE_LOSE) == USER_INFO_COMPARE_LOSE 
+                  || ( userPlayInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD )
+				{
+					continue;
+				}
 				if ( compareWinner == null) {
 					compareWinner = entry.getKey();
 					continue;
@@ -863,22 +871,24 @@ public class ZjhGameSession extends GameSession {
 			}
 		}
 		
-		/** 
-		 * 扣赢家的税
-		 */
-		int tax = (int)Math.round(totalBet*ZjhGameConstant.WINNER_TAX_RATE);
-		ServerLog.info(sessionId, "<judgeWhoWins> Tax the winner 10 percent of his gain coins. Tax is : "+ totalBet
+		if ( compareWinner != null ) {
+			/** 
+			 * 扣赢家的税
+			 */
+			int tax = (int)Math.round(totalBet*ZjhGameConstant.WINNER_TAX_RATE);
+			ServerLog.info(sessionId, "<judgeWhoWins> Tax the winner 10 percent of his gain coins. Tax is : "+ totalBet
 				+" * "+ ZjhGameConstant.WINNER_TAX_RATE + " = " + tax);
 
-		/**
-		 *  构造结果
-		 */
-		int gainCoins = totalBet - totalBetMap.get(compareWinner) - tax; // 自己下的赌注只是帐面上的值，并没有真正掏出口袋，
+			/**
+			 *  构造结果
+			 */
+			int gainCoins = totalBet - totalBetMap.get(compareWinner) - tax; // 自己下的赌注只是帐面上的值，并没有真正掏出口袋，
 																					 // 所以最后收获的值需要减去自己的赌注
-		result = gameResultService.makePBUserResult(compareWinner, true, gainCoins);
-		// 名义上的结果, 需要把赢家自己的赌注也加上, 以返回给客户端
-		nominalResult = gameResultService.makePBUserResult(compareWinner, true, totalBet - tax);
-		userResults.put(compareWinner, nominalResult);
+			result = gameResultService.makePBUserResult(compareWinner, true, gainCoins);
+			// 名义上的结果, 需要把赢家自己的赌注也加上, 以返回给客户端
+			nominalResult = gameResultService.makePBUserResult(compareWinner, true, totalBet - tax);
+			userResults.put(compareWinner, nominalResult);
+		}
 		
 		return result;
 	}
