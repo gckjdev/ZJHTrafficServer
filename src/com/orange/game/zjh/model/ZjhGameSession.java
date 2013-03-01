@@ -369,6 +369,19 @@ public class ZjhGameSession extends GameSession {
 		return PBPokerSuit.valueOf(value);
 	}
 	
+	public PBPoker pokerIdToPBPoker(int pokerId) {
+		
+		PBPokerRank rank = pokerIdToRank(pokerId);
+		PBPokerSuit suit = pokerIdToSuit(pokerId);
+		
+		PBPoker pbPoker = PBPoker.newBuilder()
+									.setPokerId(pokerId)
+									.setRank(rank)
+									.setSuit(suit)
+									.build();
+		return pbPoker;
+	}
+	
 	
 	public GameResultCode timeoutBet(String userId) {
 		
@@ -941,7 +954,7 @@ public class ZjhGameSession extends GameSession {
 		else {
 			int userInfo = userPlayInfoMask.get(userId);
 			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
-				ServerLog.info(sessionId, "<ZjhGameSessuion.checkCard> "+ userId+ "has folded card !!! Can't check ");
+				ServerLog.info(sessionId, "<ZjhGameSessuion.changeCard> "+ userId+ "has folded card !!! Can't check ");
 				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
 			}
 			

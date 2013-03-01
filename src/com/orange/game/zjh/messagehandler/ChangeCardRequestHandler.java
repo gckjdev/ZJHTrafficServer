@@ -31,6 +31,7 @@ public class ChangeCardRequestHandler extends AbstractMessageHandler {
 		String userId = message.getUserId();
 		ChangeCardRequest request = message.getChangeCardRequest();
 		ChangeCardResponse changeCardResponse = null;
+		int toChangeCardId = request.getCardId();
 		
 		if (session == null){
 			logger.info("<ChangeCardRequestHandler> Session is null !!!");
@@ -41,7 +42,6 @@ public class ChangeCardRequestHandler extends AbstractMessageHandler {
 			resultCode = GameResultCode.ERROR_USERID_NULL;
 		}
 		else {
-			int toChangeCardId = request.getCardId();
 			resultCode = ((ZjhGameSession)session).changeCard(userId, toChangeCardId); 
 		}
 		
@@ -50,7 +50,11 @@ public class ChangeCardRequestHandler extends AbstractMessageHandler {
 		if ( resultCode == GameResultCode.SUCCESS ) {
 		   changeCardResponse = ((ZjhGameSession)session).getChangeCardResponse();
 		} else {
-			changeCardResponse = ChangeCardResponse.newBuilder().build();
+			// 如果换牌不成功，仍然返回旧牌
+			changeCardResponse = ChangeCardResponse.newBuilder()
+									.setOldCardId(toChangeCardId)
+									.setNewPoker(((ZjhGameSession)session).pokerIdToPBPoker(toChangeCardId))
+									.build();
 		}
 		
 		GameMessage response = GameMessage.newBuilder()
