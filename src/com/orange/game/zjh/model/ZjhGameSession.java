@@ -101,7 +101,6 @@ public class ZjhGameSession extends GameSession {
 	private static final String ROBOT_UID_PREFIX = "9999";
 	
 	private UserGameResultService gameResultService = UserGameResultService.getInstance();
-	private ZjhGameTestData test = ZjhGameTestData.getInstance();
 	
 	private String compareWinner = null;
 	private String compareLoser = null;
@@ -161,245 +160,6 @@ public class ZjhGameSession extends GameSession {
 		return singleBet;
 	}
 	
-	
-	// 开局，发送StartGameNotification时调用此方法
-	public List<PBZJHUserPlayInfo> deal() {
-		
-		List<PBZJHUserPlayInfo> result = new ArrayList<PBZJHUserPlayInfo>();
-		List<GameUser> gameUsers = getUserList().getPlayingUserList();
-		
- 		// 先洗牌 !
-		shufflePokers();
-		 
-		// 给每个玩家发牌，并构造消息以便返回
-		for(GameUser user : gameUsers) {
-			String userId = user.getUserId();
-			List<PBPoker> pokers = dispatchPokers();
-			// 按牌面值大小排序，以方便后续比牌操作, 存起备用
-			Collections.sort(pokers, new Comparator<PBPoker>() {
-				@Override
-				public int compare(PBPoker p1, PBPoker p2) {
-					int p1Val = p1.getRank().getNumber();
-					int p2Val = p2.getRank().getNumber();
-								
-					return p2Val - p1Val;  // 降序，所以用p2-p1 !
-				}
-			});	
-			userPokersMap.put(userId, pokers);
-
-			//检查牌类型，存起备用
-			PBZJHCardType cardType = introspectCardType(pokers,userId);
-			cardTypeMap.put(userId, cardType);
-//			ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: \n" + pokers.toString()
-//					+",\n cardType is " + cardType);
-			
-			// 一开局，每个玩家的总注等于当前房间单注
-			totalBetMap.put(userId, singleBet);
-
-			// 初始化每个玩家的playInfo值，非常重要的数据结构
-			userPlayInfoMask.put(userId, ZjhGameConstant.USER_INFO_INITIAL_VALUE);
-			
-			result.add(updateUserPlayInfo(userId));
-		}
-		
-		return result;
-	}
-
-
-	private void shufflePokers() {
-
-		// 洗牌！
-		// 前(ALL_CARD_NUM - 1)张中随机一张跟最后一张交换，然后，前(ALL_CARD_NUM - 2)张中随机一张跟倒数第二张
-		// 交换，etc.这样，就可以把牌洗得很乱。
-		for (int i = ZjhGameConstant.ALL_CARD_NUM - 1; i > 0; i--) {
-			int random = RandomUtils.nextInt(i);
-			int tmp = pokerPool[random];
-			pokerPool[random] = pokerPool[i];
-			pokerPool[i] = tmp;
-		}
-
-		ServerLog.info(sessionId, "<shufflePokers> Pokers shuffled!!!");
-	}
-	
-	
-	
-	private synchronized List<PBPoker> dispatchPokers() {
-		
-		List<PBPoker> result = new ArrayList<PBPoker>();
-		PBPoker pbPoker = null;
-		
-		if (  testEnable == 1 ) {
-			if ( RandomUtils.nextInt(2) == 0) {
-				return test.dispatchPokersForTest(THREE_OF_A_KIND);
-			}
-			return test.dispatchPokersForTest(SPECIAL);
-		}
-		
-//		ServerLog.info(sessionId, "<dispatchPokers> pokerPoolCursor = " +pokerPoolCursor);
-		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
-			pbPoker = getOneCardFromPokerPool();
-			result.add(pbPoker);		
-		}
-		
-		return result;
-	}
-
-	// 该方法会在发牌时和换牌时被调用。最后一个参数标志是否要先清除
-	private PBZJHCardType introspectCardType(List<PBPoker> pokers,String userId) {
-		
-		PBZJHCardType type = null;
-		int[] ranks = new int[ZjhGameConstant.PER_USER_CARD_NUM];
-		int[] suits = new int[ZjhGameConstant.PER_USER_CARD_NUM];
-		
-		int rankMask = ZjhGameConstant.RANK_MASK;
-		int suitMask = ZjhGameConstant.SUIT_MASK;
-		long faceStatusMask = ZjhGameConstant.FACE_STATUS_MASK;
-		boolean foundPair = false;
-		
-		//如果已经存有该玩家的状态，要清空; 没有的话, 此操作也无副作用。
-		rankMaskMap.remove(userId);
-		suitMaskMap.remove(userId);
-		faceStatusMap.remove(userId);
-		pairRankMap.remove(userId);
-		cardTypeMap.remove(userId);
-		
-		for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
-			PBPoker poker = pokers.get(i);
-			if ( poker == null ) {
-				ServerLog.error(sessionId, new NullPointerException());
-				return PBZJHCardType.UNKNOW;
-			}
-			// 获得序号值来作为牌面在掩码中的第几位，比如A的ordinal是12, 即对应
-			// 掩码中的第12位（从0开始计数）; 花色亦同。
-			// 牌面： 1 1111 1111 1111， 从左到右分别对应: A KQJ10 9876 5432
-			// 花色： 1111， 从左到右分别对应： 黑桃，红心，梅花，方块
-			ranks[i] = poker.getRank().ordinal();
-			suits[i] = poker.getSuit().ordinal();
-			
-			// 根据ordinal值把掩码中对应位置为0
-			rankMask &= ~( 1 << ranks[i]);
-			suitMask &= ~( 1 << suits[i]);
-			// faceStatusMask是一个表示52张牌是否亮出的值，当亮出时,即把对应的pokerId位
-			// 置为1.
-			faceStatusMask &= ~( 1 << toPokerId(PBPokerRank.valueOf(ranks[i]+2), 
-					PBPokerSuit.valueOf(suits[i]+1))); 
-			
-			// 记录下对子牌
-			if ( i > 0 && !foundPair) {
-				for ( int j = 0; j < i ; j++ ){
-					if ( ranks[j] == ranks[i]) { 
-						pairRankMap.put(userId, ranks[i]+2);
-						foundPair = true;
-						break;
-					}
-				}
-			}
-		}
-			
-		// 以备后用
-		rankMaskMap.put(userId, rankMask);
-		suitMaskMap.put(userId, suitMask);
-		faceStatusMap.put(userId, faceStatusMask);
-		
-		// 有几种牌面值, 表示为牌面掩码有几个0。0x1FFF表示只考虑rankMask的低13位，即AKQJ,10-2, 共13种牌面值。
-		int howManyRanks = IntegerUtil.howManyBits(rankMask, 0x1FFF, 0);
-		// 有几种花色花色, 表示为花色掩码有几个0。0xF表示只考虑suitMask低4位，即四种花色。
-		int howManySuits = IntegerUtil.howManyBits(suitMask,0xF, 0);
-		// 牌面值掩码有没有连续的3个0, 有的话表示是顺子牌。0x1FFF意义同前。 
-		boolean hasThreeConsecutiveBit = IntegerUtil.hasConsecutiveBit(rankMask, 0x1FFF,  3, 0);
-		
-		if ( rankMask == ZjhGameConstant.TYPE_SPECIAL && howManySuits > 1) { 
-			type = PBZJHCardType.SPECIAL; // 特殊牌：不同花色的2,3,5， 掩码值为 1 1111 1111 0100
-		}
-		else if ( howManyRanks == 1 ) {
-			type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
-			someOneGotKing = true; 
-		}
-		else if ( howManySuits == 1) {
-			if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
-				type = PBZJHCardType.STRAIGHT_FLUSH; // 顺金， 只有一种花色
-			} else {
-				type = PBZJHCardType.FLUSH; // 金花，即同花，只有一种花色
-			}
-		}
-		else if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
-			type = PBZJHCardType.STRAIGHT; // 顺子，不只一种花色
-		}
-		else if ( howManyRanks == 2 ) {
-			type = PBZJHCardType.PAIR;  // 对子， 有二种牌面值
-		}
-		else if ( howManyRanks == 3 && ! hasThreeConsecutiveBit) {
-			type = PBZJHCardType.HIGH_CARD; // 散牌， 有三种牌面值，且不是连续的
-		} 
-		else {
-			type = PBZJHCardType.UNKNOW; // 未知
-		}
-		
-		return type;
-	}
-
-	
-	private int toPokerId(PBPokerRank rank, PBPokerSuit suit) {
-		
-		// id start from 0
-		int id = 0;
-		int rankVal = rank.getNumber();
-		int suitVal = suit.getNumber();
-		
-		id = (rankVal-2) * ZjhGameConstant.SUIT_TYPE_NUM + (suitVal-1);
-		
-		return id;
-	}
-
-
-	private PBPokerRank pokerIdToRank(int pokerId) {
-		
-		// see protocol buffer definition for why adding 2
-		int value = pokerId / ZjhGameConstant.SUIT_TYPE_NUM + 2;
-		
-		return PBPokerRank.valueOf(value);
-	}
-
-	
-	private PBPokerSuit pokerIdToSuit(int pokerId) {
-		
-		// see protocol buffer definition for why adding 1
-		int value = pokerId % ZjhGameConstant.SUIT_TYPE_NUM + 1;
-		
-		return PBPokerSuit.valueOf(value);
-	}
-	
-	public PBPoker pokerIdToPBPoker(int pokerId) {
-		
-		PBPokerRank rank = pokerIdToRank(pokerId);
-		PBPokerSuit suit = pokerIdToSuit(pokerId);
-		
-		PBPoker pbPoker = PBPoker.newBuilder()
-									.setPokerId(pokerId)
-									.setRank(rank)
-									.setSuit(suit)
-									.build();
-		return pbPoker;
-	}
-	
-	
-	public GameResultCode timeoutBet(String userId) {
-		
-		if ( !userPlayInfoMask.containsKey(userId) ) {
-			ServerLog.info(sessionId, "<ZjhGameSessuion.timeoutBet> "+ userId+ " not in this session???!!!");
-			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
-		} 
-		
-		int count = 1;
-		int userInfo = userPlayInfoMask.get(userId);
-		if ( (userInfo & USER_INFO_CHECKED_CARD) == USER_INFO_CHECKED_CARD ) {
-			count =  2;
-		} 
-		boolean isAutoBet = false;
-			
-		return bet(userId, singleBet, count, isAutoBet);
-	}
-
 	
 	public synchronized GameResultCode bet(String userId, int givenSingleBet, int count,
 			boolean isAutoBet) {
@@ -596,11 +356,7 @@ public class ZjhGameSession extends GameSession {
 		int loserOldInfo = userPlayInfoMask.get(compareLoser);
 		loserOldInfo &= ~LAST_ACTION_MASK; // 先清空lastAction
 		userPlayInfoMask.put(compareLoser, loserOldInfo | USER_INFO_ACTION_COMPARE_CARD | USER_INFO_COMPARE_LOSE );
-		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> before "+ compareLoser 
-				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
 		alivePlayerCount.decrementAndGet(); //只要副作用，返回值不要
-		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> after "+ compareLoser 
-				+ " loses the comparison, the alivePlayerCount is " + alivePlayerCount);
 		GameUser loserUser = findUser(compareLoser);// 不能用GameUserManager.getInstance().findUserById()这个方法
 		ServerLog.info(sessionId, "<ZjhGameSession.compareCard> loserUser = " + (loserUser == null ? null : loserUser) );
 		if ( loserUser != null ) {
@@ -650,12 +406,10 @@ public class ZjhGameSession extends GameSession {
 		if ( userCardType < toUserCardType ) {
 				compareWinner = toUserId;
 				compareLoser = userId;
-				ServerLog.info(sessionId, "<compareCard> usercarType < touserCardType" );
 		}
 		else if ( userCardType > toUserCardType ) {
 				compareWinner = userId;
 				compareLoser = toUserId;
-				ServerLog.info(sessionId, "<compareCard> usercarType > touserCardType");
 		}
 		else {
 			// 牌型一样，比牌面值. 顺金，金花，顺子都直接从大比到小，对子则先比对子的大小
@@ -718,6 +472,262 @@ public class ZjhGameSession extends GameSession {
 	}
 
 	
+	// 开局，发送StartGameNotification时调用此方法
+	public List<PBZJHUserPlayInfo> deal() {
+			
+			List<PBZJHUserPlayInfo> result = new ArrayList<PBZJHUserPlayInfo>();
+			List<GameUser> gameUsers = getUserList().getPlayingUserList();
+			
+	 		// 先洗牌 !
+			shufflePokers();
+			 
+			// 给每个玩家发牌，并构造消息以便返回
+			for(GameUser user : gameUsers) {
+				String userId = user.getUserId();
+				List<PBPoker> pokers = dispatchPokers();
+				// 按牌面值大小排序，以方便后续比牌操作, 存起备用
+				Collections.sort(pokers, new Comparator<PBPoker>() {
+					@Override
+					public int compare(PBPoker p1, PBPoker p2) {
+						int p1Val = p1.getRank().getNumber();
+						int p2Val = p2.getRank().getNumber();
+									
+						return p2Val - p1Val;  // 降序，所以用p2-p1 !
+					}
+				});	
+				userPokersMap.put(userId, pokers);
+
+				//检查牌类型，存起备用
+				PBZJHCardType cardType = introspectCardType(pokers,userId);
+				cardTypeMap.put(userId, cardType);
+//				ServerLog.info(sessionId, "<deal> User "+userId+" gets pokers: \n" + pokers.toString()
+//						+",\n cardType is " + cardType);
+				
+				// 一开局，每个玩家的总注等于当前房间单注
+				totalBetMap.put(userId, singleBet);
+
+				// 初始化每个玩家的playInfo值，非常重要的数据结构
+				userPlayInfoMask.put(userId, ZjhGameConstant.USER_INFO_INITIAL_VALUE);
+				
+				result.add(updateUserPlayInfo(userId));
+			}
+			
+			return result;
+		}
+
+
+		private void shufflePokers() {
+
+			// 洗牌！
+			// 前(ALL_CARD_NUM - 1)张中随机一张跟最后一张交换，然后，前(ALL_CARD_NUM - 2)张中随机一张跟倒数第二张
+			// 交换，etc.这样，就可以把牌洗得很乱。
+			for (int i = ZjhGameConstant.ALL_CARD_NUM - 1; i > 0; i--) {
+				int random = RandomUtils.nextInt(i);
+				int tmp = pokerPool[random];
+				pokerPool[random] = pokerPool[i];
+				pokerPool[i] = tmp;
+			}
+		}
+		
+		
+		private synchronized List<PBPoker> dispatchPokers() {
+			
+			List<PBPoker> result = new ArrayList<PBPoker>();
+			PBPoker pbPoker = null;
+			
+			for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
+				pbPoker = getOneCardFromPokerPool();
+				result.add(pbPoker);		
+			}
+			
+			return result;
+		}
+
+		
+		// 该方法会在发牌时和换牌时被调用。
+		private PBZJHCardType introspectCardType(List<PBPoker> pokers,String userId) {
+			
+			PBZJHCardType type = null;
+			int[] ranks = new int[ZjhGameConstant.PER_USER_CARD_NUM];
+			int[] suits = new int[ZjhGameConstant.PER_USER_CARD_NUM];
+			
+			int rankMask = ZjhGameConstant.RANK_MASK;
+			int suitMask = ZjhGameConstant.SUIT_MASK;
+			long faceStatusMask = ZjhGameConstant.FACE_STATUS_MASK;
+			boolean foundPair = false;
+			
+			//如果已经存有该玩家的状态，要清空; 没有的话, 此操作也无副作用。
+			rankMaskMap.remove(userId);
+			suitMaskMap.remove(userId);
+			faceStatusMap.remove(userId);
+			pairRankMap.remove(userId);
+			cardTypeMap.remove(userId);
+			
+			for (int i = 0; i < ZjhGameConstant.PER_USER_CARD_NUM; i++) {
+				PBPoker poker = pokers.get(i);
+				if ( poker == null ) {
+					ServerLog.error(sessionId, new NullPointerException());
+					return PBZJHCardType.UNKNOW;
+				}
+				// 获得序号值来作为牌面在掩码中的第几位，比如A的ordinal是12, 即对应
+				// 掩码中的第12位（从0开始计数）; 花色亦同。
+				// 牌面： 1 1111 1111 1111， 从左到右分别对应: A KQJ10 9876 5432
+				// 花色： 1111， 从左到右分别对应： 黑桃，红心，梅花，方块
+				ranks[i] = poker.getRank().ordinal();
+				suits[i] = poker.getSuit().ordinal();
+				
+				// 根据ordinal值把掩码中对应位置为0
+				rankMask &= ~( 1 << ranks[i]);
+				suitMask &= ~( 1 << suits[i]);
+				// faceStatusMask是一个表示52张牌是否亮出的值，当亮出时,即把对应的pokerId位
+				// 置为1.
+				faceStatusMask &= ~( 1 << toPokerId(PBPokerRank.valueOf(ranks[i]+2), 
+						PBPokerSuit.valueOf(suits[i]+1))); 
+				
+				// 记录下对子牌
+				if ( i > 0 && !foundPair) {
+					for ( int j = 0; j < i ; j++ ){
+						if ( ranks[j] == ranks[i]) { 
+							pairRankMap.put(userId, ranks[i]+2);
+							foundPair = true;
+							break;
+						}
+					}
+				}
+			}
+				
+			// 以备后用
+			rankMaskMap.put(userId, rankMask);
+			suitMaskMap.put(userId, suitMask);
+			faceStatusMap.put(userId, faceStatusMask);
+			
+			// 有几种牌面值, 表示为牌面掩码有几个0。0x1FFF表示只考虑rankMask的低13位，即AKQJ,10-2, 共13种牌面值。
+			int howManyRanks = IntegerUtil.howManyBits(rankMask, 0x1FFF, 0);
+			// 有几种花色花色, 表示为花色掩码有几个0。0xF表示只考虑suitMask低4位，即四种花色。
+			int howManySuits = IntegerUtil.howManyBits(suitMask,0xF, 0);
+			// 牌面值掩码有没有连续的3个0, 有的话表示是顺子牌。0x1FFF意义同前。 
+			boolean hasThreeConsecutiveBit = IntegerUtil.hasConsecutiveBit(rankMask, 0x1FFF,  3, 0);
+			
+			if ( rankMask == ZjhGameConstant.TYPE_SPECIAL && howManySuits > 1) { 
+				type = PBZJHCardType.SPECIAL; // 特殊牌：不同花色的2,3,5， 掩码值为 1 1111 1111 0100
+			}
+			else if ( howManyRanks == 1 ) {
+				type = PBZJHCardType.THREE_OF_A_KIND; // 豹子，同一种牌面值
+				someOneGotKing = true; 
+			}
+			else if ( howManySuits == 1) {
+				if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
+					type = PBZJHCardType.STRAIGHT_FLUSH; // 顺金， 只有一种花色
+				} else {
+					type = PBZJHCardType.FLUSH; // 金花，即同花，只有一种花色
+				}
+			}
+			else if ( hasThreeConsecutiveBit || rankMask == ZjhGameConstant.RANK_MASK_A23 ) {
+				type = PBZJHCardType.STRAIGHT; // 顺子，不只一种花色
+			}
+			else if ( howManyRanks == 2 ) {
+				type = PBZJHCardType.PAIR;  // 对子， 有二种牌面值
+			}
+			else if ( howManyRanks == 3 && ! hasThreeConsecutiveBit) {
+				type = PBZJHCardType.HIGH_CARD; // 散牌， 有三种牌面值，且不是连续的
+			} 
+			else {
+				type = PBZJHCardType.UNKNOW; // 未知
+			}
+			
+			return type;
+		}
+
+
+		public GameResultCode changeCard(String userId, int toChangeCardId) {
+			
+			if ( !userPlayInfoMask.containsKey(userId) ) {
+				ServerLog.info(sessionId, "<ZjhGameSessuion.changeCard> "+ userId+ " not in this session???!!!");
+				return GameResultCode.ERROR_USER_NOT_IN_SESSION;
+			} 
+			else {
+				int userInfo = userPlayInfoMask.get(userId);
+				if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
+					ServerLog.info(sessionId, "<ZjhGameSessuion.changeCard> "+ userId+ "has folded card !!! Can't check ");
+					return GameResultCode.ERROR_ALREADY_FOLD_CARD;
+				}
+				
+				List<PBPoker> pokers = userPokersMap.get(userId);
+				
+				PBPoker newPoker = getOneCardFromPokerPool();
+				PBPoker object = null;
+				for ( PBPoker poker : pokers ) {
+					if ( poker.getPokerId() == toChangeCardId ) {
+						object = poker;
+						break;
+					}
+				}
+				pokers.remove(object);
+				pokers.add(newPoker);
+				userPokersMap.put(userId, pokers);
+				
+				PBZJHCardType newCardType = introspectCardType(pokers, userId);
+				cardTypeMap.put(userId, newCardType);
+
+				int oldValue = userPlayInfoMask.get(userId);
+				oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
+				userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_CHANGE_CARD);
+				
+				response = ChangeCardResponse.newBuilder()
+											.setOldCardId(toChangeCardId)
+											.setNewPoker(newPoker)
+											.setCardType(newCardType)
+											.build();
+				
+				return GameResultCode.SUCCESS;
+			}
+		}
+
+
+		private int toPokerId(PBPokerRank rank, PBPokerSuit suit) {
+			
+			// id start from 0
+			int id = 0;
+			int rankVal = rank.getNumber();
+			int suitVal = suit.getNumber();
+			
+			id = (rankVal-2) * ZjhGameConstant.SUIT_TYPE_NUM + (suitVal-1);
+			
+			return id;
+		}
+
+
+		private PBPokerRank pokerIdToRank(int pokerId) {
+			
+			// see protocol buffer definition for why adding 2
+			int value = pokerId / ZjhGameConstant.SUIT_TYPE_NUM + 2;
+			
+			return PBPokerRank.valueOf(value);
+		}
+
+		
+		private PBPokerSuit pokerIdToSuit(int pokerId) {
+			
+			// see protocol buffer definition for why adding 1
+			int value = pokerId % ZjhGameConstant.SUIT_TYPE_NUM + 1;
+			
+			return PBPokerSuit.valueOf(value);
+		}
+		
+	public PBPoker pokerIdToPBPoker(int pokerId) {
+			
+			PBPokerRank rank = pokerIdToRank(pokerId);
+			PBPokerSuit suit = pokerIdToSuit(pokerId);
+			
+			PBPoker pbPoker = PBPoker.newBuilder()
+										.setPokerId(pokerId)
+										.setRank(rank)
+										.setSuit(suit)
+										.build();
+			return pbPoker;
+		}
+		
+
 	public GameResultCode setTimeoutAction(String userId, PBZJHUserAction action) {
 		
 		if ( !userPlayInfoMask.containsKey(userId) ) {
@@ -873,7 +883,7 @@ public class ZjhGameSession extends GameSession {
 				if (status.equals(SessionStatus.ACTUAL_PLAYING) 
 						&& ( userPlayInfo & USER_INFO_COMPARE_LOSE) == USER_INFO_COMPARE_LOSE 
                   || ( userPlayInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD )
-				{
+				{   // 跳过已经比输或弃牌的玩家
 					continue;
 				}
 				if ( compareWinner == null) {
@@ -945,52 +955,6 @@ public class ZjhGameSession extends GameSession {
 	}
 	
 	
-	public GameResultCode changeCard(String userId, int toChangeCardId) {
-		
-		if ( !userPlayInfoMask.containsKey(userId) ) {
-			ServerLog.info(sessionId, "<ZjhGameSessuion.changeCard> "+ userId+ " not in this session???!!!");
-			return GameResultCode.ERROR_USER_NOT_IN_SESSION;
-		} 
-		else {
-			int userInfo = userPlayInfoMask.get(userId);
-			if ( (userInfo & USER_INFO_FOLDED_CARD) == USER_INFO_FOLDED_CARD ) {
-				ServerLog.info(sessionId, "<ZjhGameSessuion.changeCard> "+ userId+ "has folded card !!! Can't check ");
-				return GameResultCode.ERROR_ALREADY_FOLD_CARD;
-			}
-			
-			List<PBPoker> pokers = userPokersMap.get(userId);
-			
-			PBPoker newPoker = getOneCardFromPokerPool();
-			PBPoker object = null;
-			for ( PBPoker poker : pokers ) {
-				if ( poker.getPokerId() == toChangeCardId ) {
-					object = poker;
-					break;
-				}
-			}
-			pokers.remove(object);
-			pokers.add(newPoker);
-			userPokersMap.put(userId, pokers);
-			
-			PBZJHCardType newCardType = introspectCardType(pokers, userId);
-			cardTypeMap.put(userId, newCardType);
-
-			int oldValue = userPlayInfoMask.get(userId);
-			oldValue &= ~LAST_ACTION_MASK; // 先清空lastAction
-			userPlayInfoMask.put(userId, oldValue | USER_INFO_ACTION_CHANGE_CARD);
-			
-			response = ChangeCardResponse.newBuilder()
-										.setOldCardId(toChangeCardId)
-										.setNewPoker(newPoker)
-										.setCardType(newCardType)
-										.build();
-			
-			return GameResultCode.SUCCESS;
-		}
-
-		
-	}
-
 	private PBPoker getOneCardFromPokerPool() {
 		
 		PBPokerRank rank = null;
