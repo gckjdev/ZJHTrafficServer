@@ -61,7 +61,8 @@ public class ZjhRobotIntelligence {
 				case PBZJHRuleType.NORMAL_VALUE: return Normal;
 				case PBZJHRuleType.RICH_VALUE: return Rich;
 				case PBZJHRuleType.DUAL_VALUE: return Dual;
-				default: return null;
+				default:
+                    return Normal;  // default
 			}
 		}
 	}
