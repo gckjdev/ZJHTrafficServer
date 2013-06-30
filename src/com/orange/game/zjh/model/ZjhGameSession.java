@@ -890,7 +890,11 @@ public class ZjhGameSession extends GameSession {
 					compareWinner = entry.getKey();
 					continue;
 				}
+				
 				doCompareCard(compareWinner, entry.getKey());
+				// 并马上扣除其赌注, doCompareCard后, compareWinner存着胜者，compareLoser存着败者
+				PBUserResult loserResult = gameResultService.makePBUserResult(compareLoser, false, -1 * totalBetMap.get(compareLoser));
+				gameResultService.writeUserCoinsIntoDB(sessionId, loserResult, DBConstants.C_CHARGE_SOURCE_ZJH_COMPARE_LOSE);
 			}
 		}
 		
