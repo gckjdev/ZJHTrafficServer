@@ -5,7 +5,6 @@ import java.util.List;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.MessageEvent;
 
-import com.orange.common.log.ServerLog;
 import com.orange.game.traffic.messagehandler.room.JoinGameRequestHandler;
 import com.orange.game.traffic.model.dao.GameSession;
 import com.orange.game.zjh.model.ZjhGameSession;
